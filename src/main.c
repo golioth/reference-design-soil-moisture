@@ -5,9 +5,11 @@
  */
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(golioth_rd_template, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(golioth_soil-moisture, LOG_LEVEL_DBG);
 
 #include <modem/lte_lc.h>
+#include <net/golioth/fw.h>
+#include <net/golioth/settings.h>
 #include <net/golioth/system_client.h>
 #include <samples/common/net_connect.h>
 #include <zephyr/net/coap.h>
@@ -25,6 +27,7 @@ static struct golioth_client *client = GOLIOTH_SYSTEM_CLIENT_GET();
 K_SEM_DEFINE(connected, 0, 1);
 K_SEM_DEFINE(dfu_status_update, 0, 1);
 
+static int32_t _loop_delay_s = 60;
 static k_tid_t _system_thread = 0;
 
 static const struct gpio_dt_spec golioth_led = GPIO_DT_SPEC_GET(
@@ -41,6 +44,34 @@ void wake_system_thread(void) {
 	k_wakeup(_system_thread);
 }
 
+enum golioth_settings_status on_setting(
+		const char *key,
+		const struct golioth_settings_value *value)
+{
+	LOG_DBG("Received setting: key = %s, type = %d", key, value->type);
+	if (strcmp(key, "LOOP_DELAY_S") == 0) {
+		/* This setting is expected to be numeric, return an error if it's not */
+		if (value->type != GOLIOTH_SETTINGS_VALUE_TYPE_INT64) {
+			return GOLIOTH_SETTINGS_VALUE_FORMAT_NOT_VALID;
+		}
+
+		/* This setting must be in range [1, 100], return an error if it's not */
+		if (value->i64 < 1 || value->i64 > 100) {
+			return GOLIOTH_SETTINGS_VALUE_OUTSIDE_RANGE;
+		}
+
+		/* Setting has passed all checks, so apply it to the loop delay */
+		_loop_delay_s = (int32_t)value->i64;
+		LOG_INF("Set loop delay to %d seconds", _loop_delay_s);
+
+		k_wakeup(_system_thread);
+		return GOLIOTH_SETTINGS_SUCCESS;
+	}
+
+	/* If the setting is not recognized, we should return an error */
+	return GOLIOTH_SETTINGS_KEY_NOT_RECOGNIZED;
+}
+
 static void golioth_on_connect(struct golioth_client *client)
 {
 	k_sem_give(&connected);
@@ -50,6 +81,12 @@ static void golioth_on_connect(struct golioth_client *client)
 	app_register_settings(client);
 	app_register_rpc(client);
 	app_state_observe();
+
+	int err = golioth_settings_register_callback(client, on_setting);
+
+	if (err) {
+		LOG_ERR("Failed to register settings callback: %d", err);
+	}
 
 	static bool initial_connection = true;
 	if (initial_connection) {
@@ -125,7 +162,7 @@ void main(void)
 {
 	int err;
 
-	LOG_DBG("Start Reference Design Template sample");
+	LOG_DBG("Start Golioth Soil Moisture Monitor sample");
 
 	/* Update Ostentus LEDS using bitmask (Power On)*/
 	led_bitmask(LED_POW);

@@ -1,6 +1,6 @@
 sample:
-  description: Golioth Reference Design Template
-  name: rd_template
+  description: Golioth Soil Moisture Monitor Reference Design
+  name: soil-moisture
 common:
   harness: net
   platform_allow: >
