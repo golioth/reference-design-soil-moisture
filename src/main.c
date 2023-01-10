@@ -5,7 +5,7 @@
  */
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(golioth_soil-moisture, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(golioth_soil_moisture, LOG_LEVEL_DBG);
 
 #include <modem/lte_lc.h>
 #include <net/golioth/fw.h>
@@ -187,6 +187,9 @@ void main(void)
 
 	/* Initialize DFU components */
 	app_dfu_init(client);
+
+	/*Initialize sensors using sensor subsystem*/
+	sensor_init();
 
 	/* Register Golioth on_connect callback */
 	client->on_connect = golioth_on_connect;
