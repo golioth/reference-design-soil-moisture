@@ -24,15 +24,15 @@ static struct golioth_client *client;
 struct device *imu_sensor;
 struct device *weather_sensor;
 
-/* Formatting string for sending sensor JSON to Golioth */
-#define JSON_FMT	"{\"counter\":%d}"
-
-
 /* Callback for LightDB Stream */
 static int async_error_handler(struct golioth_req_rsp *rsp) {
 	if (rsp->err) {
 		LOG_ERR("Async task failed: %d", rsp->err);
 		return rsp->err;
+	}
+	else
+	{
+		LOG_DBG("Successful Async LightDB Stream write!");		
 	}
 	return 0;
 }
@@ -94,9 +94,9 @@ void app_work_sensor_read(void) {
 	LOG_DBG("  Humidity is %d.%06d", humidity.val1, abs(humidity.val2));
 	
 
-    /* Read the Who Am I register */
+    /* Read the data register from the MCP3221 */
     int ret = i2c_burst_read(i2c_dev, 0x4D,
-                                0x00, &mcp3221,2);
+                                0x00, mcp3221,2);
 	
     if (ret)
     {
@@ -110,21 +110,22 @@ void app_work_sensor_read(void) {
 	LOG_INF("LSB: 0x%x\n", mcp3221[1]);
 	LOG_INF("MS1: %d\n", raw_readings);
 
-	
 
-	// /* Send sensor data to Golioth */
-	// snprintk(json_buf, sizeof(json_buf), 
-	// 		"{\"imu\":{\"accel_x\":%f,\"accel_y\":%f,\"accel_z\":%f,},\"weather\":{\"temp\":%f,\"pressure\":%f,\"humidity\":%f}}",
-	// 		sensor_value_to_double(&accel_x),
-	// 		sensor_value_to_double(&accel_y),
-	// 		sensor_value_to_double(&accel_z),
-	// 		sensor_value_to_double(&temp),
-	// 		sensor_value_to_double(&pressure),
-	// 		sensor_value_to_double(&humidity)
-	// 		//raw_readings
-	// 		);
+	/* Send sensor data to Golioth */
+	snprintk(json_buf, sizeof(json_buf), 
+			"{\"imu\":{\"accel_x\":%f,\"accel_y\":%f,\"accel_z\":%f},\"weather\":{\"temp\":%f,\"pressure\":%f,\"humidity\":%f}}",
+			sensor_value_to_double(&accel_x),
+			sensor_value_to_double(&accel_y),
+			sensor_value_to_double(&accel_z),
+			sensor_value_to_double(&temp),
+			sensor_value_to_double(&pressure),
+			sensor_value_to_double(&humidity)
+			//raw_readings
+			);
 
-	
+	LOG_DBG("%s",json_buf);
+	LOG_DBG("%d",strlen(json_buf));
+	LOG_HEXDUMP_DBG(json_buf,sizeof(json_buf),"JSON buf alt");
 
 	err = golioth_stream_push_cb(client, "sensor",
 			GOLIOTH_CONTENT_FORMAT_APP_JSON,
