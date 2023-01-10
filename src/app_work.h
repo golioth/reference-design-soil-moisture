@@ -9,5 +9,7 @@
 
 void app_work_init(struct golioth_client* work_client);
 void app_work_submit(void);
+void sensor_init(void);
+
 
 #endif /* __APP_WORK_H__ */

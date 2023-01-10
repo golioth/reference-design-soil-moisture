@@ -5,7 +5,7 @@
  */
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(golioth_soil-moisture, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(golioth_soil_moisture, LOG_LEVEL_DBG);
 
 #include <net/golioth/fw.h>
 #include <net/golioth/settings.h>
@@ -98,6 +98,9 @@ void main(void)
 
 	/* Initialize DFU components */
 	app_dfu_init(client);
+
+		/*Initialize sensors using sensor subsystem*/
+	sensor_init();
 
 	/* Run WiFi/DHCP if necessary */
 	if (IS_ENABLED(CONFIG_GOLIOTH_SAMPLES_COMMON)) {
