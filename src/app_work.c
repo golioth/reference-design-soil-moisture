@@ -110,14 +110,15 @@ static void sensor_work_handler(struct k_work *work) {
 
 	/* Send sensor data to Golioth */
 	snprintk(json_buf, sizeof(json_buf), 
-			"{\"imu\":{\"accel_x\":%f,\"accel_y\":%f,\"accel_z\":%f},\"weather\":{\"temp\":%f,\"pressure\":%f,\"humidity\":%f}}",
+			"{\"imu\":{\"accel_x\":%f,\"accel_y\":%f,\"accel_z\":%f},\"weather\":{\"temp\":%f,\"pressure\":%f,\"humidity\":%f},\"moisture\":{\"raw\":%d,\"level\":%d}}",
 			sensor_value_to_double(&accel_x),
 			sensor_value_to_double(&accel_y),
 			sensor_value_to_double(&accel_z),
 			sensor_value_to_double(&temp),
 			sensor_value_to_double(&pressure),
-			sensor_value_to_double(&humidity)
-			//raw_readings
+			sensor_value_to_double(&humidity),
+			raw_readings,	// send back raw moisture readings from i2c sensor
+			60				// this is the 'level' that will be used in animations on the console, currently a fake value.
 			);
 
 	LOG_DBG("%s",json_buf);
