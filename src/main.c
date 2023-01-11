@@ -22,6 +22,9 @@ LOG_MODULE_REGISTER(golioth_soil_moisture, LOG_LEVEL_DBG);
 
 #include <zephyr/drivers/gpio.h>
 
+#define DEBOUNCE_TIMEOUT_MS 100
+static uint64_t last_time = 0;
+
 static struct golioth_client *client = GOLIOTH_SYSTEM_CLIENT_GET();
 
 K_SEM_DEFINE(connected, 0, 1);
@@ -138,8 +141,18 @@ static void lte_handler(const struct lte_lc_evt *const evt)
 void button_pressed(const struct device *dev, struct gpio_callback *cb,
 					uint32_t pins)
 {
-	LOG_DBG("Button pressed at %d", k_cycle_get_32());
-	k_wakeup(_system_thread);
+	// Software timer debounce
+
+	uint64_t now = k_uptime_get();
+	LOG_DBG("Now: %d",now);
+	// printk("Now is %lld, last time is %lld\n", now, last_time); // debug debounce
+	if ((now - last_time) > DEBOUNCE_TIMEOUT_MS)
+	{
+		LOG_DBG("Now: %d, Last time: %d, Difference: %d", now, last_time, (now-last_time));
+		k_wakeup(_system_thread);
+	}
+	last_time = now;
+
 }
 
 /* Set (unset) LED indicators for active Golioth connection */
