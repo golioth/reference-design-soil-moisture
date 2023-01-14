@@ -14,7 +14,7 @@ LOG_MODULE_REGISTER(app_work, LOG_LEVEL_DBG);
 
 #include "app_work.h"
 
-#include "app_work.h"
+#define MOISTURE_LEVEL 60
 #include "libostentus/libostentus.h"
 
 static struct golioth_client *client;
@@ -23,6 +23,7 @@ static struct golioth_client *client;
 
 struct device *imu_sensor;
 struct device *weather_sensor;
+const struct device *light_sensor = DEVICE_DT_GET(DT_NODELABEL(apds9960));
 
 /* Callback for LightDB Stream */
 static int async_error_handler(struct golioth_req_rsp *rsp) {
@@ -48,10 +49,16 @@ void app_work_sensor_read(void) {
 	struct sensor_value accel_x;
 	struct sensor_value accel_y;
 	struct sensor_value accel_z;
+	struct sensor_value intensity;
+	struct sensor_value red;
+	struct sensor_value green;
+	struct sensor_value blue;
+
 
 	// adding direct i2c access
 	uint8_t mcp3221[2]={0,0};
 	uint32_t raw_readings = 0;
+
 
 	const struct device *i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c1));
 	if (i2c_dev==NULL||!device_is_ready(i2c_dev))
@@ -73,26 +80,46 @@ void app_work_sensor_read(void) {
 
 	// kick off an IMU sensor reading!
 	LOG_DBG("Fetching IMU Reading");
-	sensor_sample_fetch(imu_sensor);
+	err = sensor_sample_fetch(imu_sensor);
+	if (err) {
+		LOG_ERR("IMU sensor fetch failed: %d", err);
+		return;
+	}	
 	sensor_channel_get(imu_sensor, SENSOR_CHAN_ACCEL_X, &accel_x);
-	LOG_DBG("  Accel X is %d.%06d", accel_x.val1, abs(accel_x.val2));
 	sensor_channel_get(imu_sensor, SENSOR_CHAN_ACCEL_Y, &accel_y);
-	LOG_DBG("  Accel Y is %d.%06d", accel_y.val1, abs(accel_y.val2));	
 	sensor_channel_get(imu_sensor, SENSOR_CHAN_ACCEL_Z, &accel_z);
-	LOG_DBG("  Accel Z is %d.%06d", accel_z.val1, abs(accel_z.val2));
-
+	LOG_DBG("IMU: x=%d.%06d; y=%d.%06d, z=%d.%06d", accel_x.val1, abs(accel_x.val2), accel_y.val1, abs(accel_y.val2), accel_z.val1, abs(accel_z.val2));
 
 
 	// kick off a weather sensor reading!
 	LOG_DBG("Fetching Weather Reading");
-	sensor_sample_fetch(weather_sensor);
+	err = sensor_sample_fetch(weather_sensor);
+	if (err) {
+		LOG_ERR("Weather sensor fetch failed: %d", err);
+		return;
+	}	
 	sensor_channel_get(weather_sensor, SENSOR_CHAN_AMBIENT_TEMP, &temp);
-	LOG_DBG("  Temp is %d.%06d", temp.val1, abs(temp.val2));
 	sensor_channel_get(weather_sensor, SENSOR_CHAN_PRESS, &pressure);
-	LOG_DBG("  Pressure is %d.%06d", pressure.val1, abs(pressure.val2));
 	sensor_channel_get(weather_sensor, SENSOR_CHAN_HUMIDITY, &humidity);
-	LOG_DBG("  Humidity is %d.%06d", humidity.val1, abs(humidity.val2));
-	
+	LOG_DBG("Weather: temp=%d.%06d; pressure=%d.%06d, humidity=%d.%06d", temp.val1, abs(temp.val2), pressure.val1, abs(pressure.val2), humidity.val1, abs(humidity.val2));
+
+
+
+
+	// kick off a light sensor reading!
+	LOG_DBG("Fetching Light Reading");
+
+	err = sensor_sample_fetch(light_sensor);
+	if (err) {
+		LOG_ERR("Light sensor fetch failed: %d", err);
+		return;
+	}
+	sensor_channel_get(light_sensor, SENSOR_CHAN_LIGHT, &intensity);
+	sensor_channel_get(light_sensor, SENSOR_CHAN_RED, &red);
+	sensor_channel_get(light_sensor, SENSOR_CHAN_GREEN, &green);
+	sensor_channel_get(light_sensor, SENSOR_CHAN_BLUE, &blue);
+	LOG_DBG("Light: %d; r=%d, g=%d, b=%d", intensity.val1, red.val1,
+			green.val1, blue.val1);
 
     /* Read the data register from the MCP3221 */
     int ret = i2c_burst_read(i2c_dev, 0x4D,
@@ -113,20 +140,24 @@ void app_work_sensor_read(void) {
 
 	/* Send sensor data to Golioth */
 	snprintk(json_buf, sizeof(json_buf), 
-			"{\"imu\":{\"accel_x\":%f,\"accel_y\":%f,\"accel_z\":%f},\"weather\":{\"temp\":%f,\"pressure\":%f,\"humidity\":%f},\"moisture\":{\"raw\":%d,\"level\":%d}}",
+			"{\"imu\":{\"accel_x\":%f,\"accel_y\":%f,\"accel_z\":%f},\"weather\":{\"temp\":%f,\"pressure\":%f,\"humidity\":%f},\"moisture\":{\"raw\":%d,\"level\":%d},\"light\":{\"int\":%d,\"r\":%d,\"g\":%d,\"b\":%d}}",
 			sensor_value_to_double(&accel_x),
 			sensor_value_to_double(&accel_y),
 			sensor_value_to_double(&accel_z),
 			sensor_value_to_double(&temp),
 			sensor_value_to_double(&pressure),
 			sensor_value_to_double(&humidity),
-			raw_readings,	// send back raw moisture readings from i2c sensor
-			60				// this is the 'level' that will be used in animations on the console, currently a fake value.
+			raw_readings,						// send back raw moisture readings from i2c sensor
+			MOISTURE_LEVEL,						// this is the 'level' that will be used in animations on the console, currently a fake value.
+			intensity.val1,
+			red.val1,
+			green.val1,
+			blue.val1
 			);
 
-	LOG_DBG("%s",json_buf);
-	LOG_DBG("%d",strlen(json_buf));
-	LOG_HEXDUMP_DBG(json_buf,sizeof(json_buf),"JSON buf alt");
+	 LOG_DBG("%s",json_buf);
+	 LOG_DBG("%d",strlen(json_buf));
+	 LOG_HEXDUMP_DBG(json_buf,sizeof(json_buf),"JSON buf alt");
 
 	err = golioth_stream_push_cb(client, "sensor",
 			GOLIOTH_CONTENT_FORMAT_APP_JSON,
@@ -168,4 +199,12 @@ void sensor_init(void)
         printk("Could not get bme280 device\n");
         return;
     }
+
+	LOG_DBG("APDS9960 Init");
+	light_sensor = (void *)DEVICE_DT_GET_ANY(avago_apds9960);
+
+    if (light_sensor == NULL) {
+        printk("Could not get apds9960 device\n");
+        return;
+    }	
 }
