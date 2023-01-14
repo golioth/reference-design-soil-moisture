@@ -12,8 +12,12 @@ LOG_MODULE_REGISTER(golioth_soil_moisture, LOG_LEVEL_DBG);
 #include <net/golioth/system_client.h>
 #include <samples/common/net_connect.h>
 #include <zephyr/net/coap.h>
-#include "app_dfu.h"
+
+#include "dfu/app_dfu.h"
 #include "app_work.h"
+#include "app_rpc.h"
+#include "app_settings.h"
+#include "app_state.h"
 
 #include <zephyr/drivers/gpio.h>
 
@@ -33,45 +37,25 @@ static const struct gpio_dt_spec user_btn = GPIO_DT_SPEC_GET(
 		DT_ALIAS(sw1), gpios);
 static struct gpio_callback button_cb_data;
 
-enum golioth_settings_status on_setting(
-		const char *key,
-		const struct golioth_settings_value *value)
-{
-	LOG_DBG("Received setting: key = %s, type = %d", key, value->type);
-	if (strcmp(key, "LOOP_DELAY_S") == 0) {
-		/* This setting is expected to be numeric, return an error if it's not */
-		if (value->type != GOLIOTH_SETTINGS_VALUE_TYPE_INT64) {
-			return GOLIOTH_SETTINGS_VALUE_FORMAT_NOT_VALID;
-		}
 
-		/* This setting must be in range [1, 100], return an error if it's not */
-		if (value->i64 < 1 || value->i64 > 100) {
-			return GOLIOTH_SETTINGS_VALUE_OUTSIDE_RANGE;
-		}
-
-		/* Setting has passed all checks, so apply it to the loop delay */
-		_loop_delay_s = (int32_t)value->i64;
-		LOG_INF("Set loop delay to %d seconds", _loop_delay_s);
-
-		k_wakeup(_system_thread);
-		return GOLIOTH_SETTINGS_SUCCESS;
-	}
-
-	/* If the setting is not recognized, we should return an error */
-	return GOLIOTH_SETTINGS_KEY_NOT_RECOGNIZED;
-}
 
 static void golioth_on_connect(struct golioth_client *client)
 {
 	k_sem_give(&connected);
 
-	app_dfu_observe();
-
-	int err = golioth_settings_register_callback(client, on_setting);
-
-	if (err) {
-		LOG_ERR("Failed to register settings callback: %d", err);
+	/**
+	 * Workaround for duplicate observations. This will eventually be addressed
+	 * in the Golioth SDK and iteration/conditional can be removed
+	 **/
+	static int iteration = 0;
+	if (iteration > 0) {
+		LOG_INF("Registering observations with Golioth");
+		app_dfu_observe();
+		app_register_settings(client);
+		app_register_rpc(client);
+		app_state_observe();
 	}
+	++iteration;
 }
 
 void button_pressed(const struct device *dev, struct gpio_callback *cb,
@@ -91,6 +75,10 @@ void button_pressed(const struct device *dev, struct gpio_callback *cb,
 
 }
 
+void wake_system_thread(void) {
+	k_wakeup(_system_thread);
+}
+
 void main(void)
 {
 	int err;
@@ -106,13 +94,16 @@ void main(void)
 		LOG_ERR("Unable to configure LED for Golioth Logo");
 	}
 
+	/* Initialize app state */
+	app_state_init(client);
+
 	/* Initialize app work */
 	app_work_init(client);
 
 	/* Initialize DFU components */
 	app_dfu_init(client);
 
-		/*Initialize sensors using sensor subsystem*/
+	/*Initialize sensors using sensor subsystem*/
 	sensor_init();
 
 	/* Run WiFi/DHCP if necessary */
@@ -154,6 +145,6 @@ void main(void)
 	while (true) {
 		app_work_submit();
 
-		k_sleep(K_SECONDS(_loop_delay_s));
+		k_sleep(K_SECONDS(get_loop_delay_s()));
 	}
 }
