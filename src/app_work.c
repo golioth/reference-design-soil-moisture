@@ -14,8 +14,6 @@ LOG_MODULE_REGISTER(app_work, LOG_LEVEL_DBG);
 
 #include "app_work.h"
 
-#define MOISTURE_LEVEL 60
-
 static struct golioth_client *client;
 
 /* Sensor structs */
@@ -23,6 +21,9 @@ static struct golioth_client *client;
 struct device *imu_sensor;
 struct device *weather_sensor;
 const struct device *light_sensor = DEVICE_DT_GET(DT_NODELABEL(apds9960));
+
+uint32_t moisture_level = 0;
+
 
 /* Callback for LightDB Stream */
 static int async_error_handler(struct golioth_req_rsp *rsp) {
@@ -56,7 +57,7 @@ static void sensor_work_handler(struct k_work *work) {
 
 	// adding direct i2c access
 	uint8_t mcp3221[2]={0,0};
-	uint32_t raw_readings = 0;
+	uint32_t moisture_readings = 0;
 
 
 	const struct device *i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c1));
@@ -130,11 +131,51 @@ static void sensor_work_handler(struct k_work *work) {
         return;
     }
 
-	raw_readings = (mcp3221[0]<<8) + mcp3221[1];
+	moisture_readings = (mcp3221[0]<<8) + mcp3221[1];
+	LOG_INF("MSB: 0x%x", mcp3221[0]);
+	LOG_INF("LSB: 0x%x", mcp3221[1]);
+	LOG_INF("MS1: %d", moisture_readings);
 
-	LOG_INF("MSB: 0x%x\n", mcp3221[0]);
-	LOG_INF("LSB: 0x%x\n", mcp3221[1]);
-	LOG_INF("MS1: %d\n", raw_readings);
+	// Remember, the values are inverted! The value of a "0" moisture is higher than "100"
+
+	if (moisture_readings > get_moisture_level_threshold(0))
+	{
+		moisture_level = 0;
+		LOG_DBG("Moisture level set to 0");
+	}
+	else if (moisture_readings > get_moisture_level_threshold(20) && moisture_readings < get_moisture_level_threshold(0))
+	{
+		moisture_level = 20;
+		LOG_DBG("Moisture level set to 20");
+	}
+	else if (moisture_readings > get_moisture_level_threshold(40) && moisture_readings < get_moisture_level_threshold(20))
+	{
+		moisture_level = 40;
+		LOG_DBG("Moisture level set to 40");
+	}
+	else if (moisture_readings > get_moisture_level_threshold(60) && moisture_readings < get_moisture_level_threshold(40))
+	{
+		moisture_level = 60;
+		LOG_DBG("Moisture level set to 60");
+	}
+	else if (moisture_readings > get_moisture_level_threshold(80) && moisture_readings < get_moisture_level_threshold(60))
+	{
+		moisture_level = 80;
+		LOG_DBG("Moisture level set to 80");
+	}
+	else if (moisture_readings < get_moisture_level_threshold(80))
+	{
+		moisture_level = 100;
+		LOG_DBG("Moisture level set to 100");
+	}
+	else
+	{
+		// Error state
+		LOG_ERR("Your math or your moisture threshold limits are wrong. Check settings.");
+
+	}
+	LOG_INF("Moisture level is %d", moisture_level);
+
 
 
 	/* Send sensor data to Golioth */
@@ -146,8 +187,8 @@ static void sensor_work_handler(struct k_work *work) {
 			sensor_value_to_double(&temp),
 			sensor_value_to_double(&pressure),
 			sensor_value_to_double(&humidity),
-			raw_readings,						// send back raw moisture readings from i2c sensor
-			MOISTURE_LEVEL,						// this is the 'level' that will be used in animations on the console, currently a fake value.
+			moisture_readings,						// send back raw moisture readings from i2c sensor
+			moisture_level,						// this is the 'level' that will be used in animations on the console, currently a fake value.
 			intensity.val1,
 			red.val1,
 			green.val1,

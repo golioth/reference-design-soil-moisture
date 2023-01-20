@@ -24,7 +24,7 @@ int32_t get_loop_delay_s(void) {
 	return _loop_delay_s;
 }
 
-int32_t get_moisture_level(uint32_t moisture_threshold)
+int32_t get_moisture_level_threshold(uint32_t moisture_threshold)
 {
 	switch (moisture_threshold)
 	{
