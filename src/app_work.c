@@ -218,9 +218,9 @@ static void sensor_work_handler(struct k_work *work) {
 			rrsp			
 			);
 
-	 LOG_DBG("%s",json_buf);
-	 LOG_DBG("%d",strlen(json_buf));
-	 LOG_HEXDUMP_DBG(json_buf,sizeof(json_buf),"JSON buf alt");
+	//  LOG_DBG("%s",json_buf);
+	//  LOG_DBG("%d",strlen(json_buf));
+	//  LOG_HEXDUMP_DBG(json_buf,sizeof(json_buf),"JSON buf alt");
 
 	err = golioth_stream_push_cb(client, "sensor",
 			GOLIOTH_CONTENT_FORMAT_APP_JSON,
