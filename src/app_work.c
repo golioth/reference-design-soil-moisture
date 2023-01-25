@@ -12,6 +12,13 @@ LOG_MODULE_REGISTER(app_work, LOG_LEVEL_DBG);
 #include <zephyr/drivers/sensor.h>
 #include <drivers/i2c.h>
 
+#if defined(CONFIG_NRF_MODEM_LIB)
+#include <modem/lte_lc.h>
+#include <modem/nrf_modem_lib.h>
+#include <modem/modem_info.h>
+#include <nrf_modem.h>
+#endif
+
 #include "app_work.h"
 
 #include "libostentus/libostentus.h"
@@ -61,6 +68,10 @@ void app_work_sensor_read(void) {
 	uint8_t mcp3221[2]={0,0};
 	uint32_t moisture_readings = 0;
 
+	// Measure battery
+
+	int16_t bat_voltage = 0;
+	int16_t rrsp = 0;
 
 	const struct device *i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c1));
 	if (i2c_dev==NULL||!device_is_ready(i2c_dev))
@@ -74,11 +85,21 @@ void app_work_sensor_read(void) {
 
 	LOG_INF("Sending hello! %d", counter);
 
-	err = golioth_send_hello(client);
-	if (err) {
-		LOG_WRN("Failed to send hello!");
+	/* Request battery voltage data from the modem. */
+	err = modem_info_short_get(MODEM_INFO_BATTERY, &bat_voltage);
+	if (err != sizeof(bat_voltage)) {
+		printk("modem_info_short_get, error: %d\n", err);
+		return;
 	}
+	LOG_DBG("Modem voltage is %d",bat_voltage);
 
+	/* Request rrsp data from the modem. */
+	err = modem_info_short_get(MODEM_INFO_RSRP, &rrsp);
+	if (err != sizeof(rrsp)) {
+		printk("modem_info_short_get, error: %d\n", err);
+		return ;
+	}
+	LOG_DBG("Modem RRSP is %d",rrsp);
 
 	// kick off an IMU sensor reading!
 	LOG_DBG("Fetching IMU Reading");
@@ -134,9 +155,9 @@ void app_work_sensor_read(void) {
     }
 
 	moisture_readings = (mcp3221[0]<<8) + mcp3221[1];
-	LOG_INF("MSB: 0x%x", mcp3221[0]);
-	LOG_INF("LSB: 0x%x", mcp3221[1]);
-	LOG_INF("MS1: %d", moisture_readings);
+	LOG_DBG("MSB: 0x%x", mcp3221[0]);
+	LOG_DBG("LSB: 0x%x", mcp3221[1]);
+	LOG_DBG("MS1: %d", moisture_readings);
 
 	// Remember, the values are inverted! The value of a "0" moisture is higher than "100"
 
@@ -176,13 +197,13 @@ void app_work_sensor_read(void) {
 		LOG_ERR("Your math or your moisture threshold limits are wrong. Check settings.");
 
 	}
-	LOG_INF("Moisture level is %d", moisture_level);
+	LOG_DBG("Moisture level is %d", moisture_level);
 
 
 
 	/* Send sensor data to Golioth */
 	snprintk(json_buf, sizeof(json_buf), 
-			"{\"imu\":{\"accel_x\":%f,\"accel_y\":%f,\"accel_z\":%f},\"weather\":{\"temp\":%f,\"pressure\":%f,\"humidity\":%f},\"moisture\":{\"raw\":%d,\"level\":%d},\"light\":{\"int\":%d,\"r\":%d,\"g\":%d,\"b\":%d}}",
+			"{\"imu\":{\"accel_x\":%f,\"accel_y\":%f,\"accel_z\":%f},\"weather\":{\"temp\":%f,\"pressure\":%f,\"humidity\":%f},\"moisture\":{\"raw\":%d,\"level\":%d},\"light\":{\"int\":%d,\"r\":%d,\"g\":%d,\"b\":%d},\"device\":{\"bat\":%d,\"rrsp\":%d}}",
 			sensor_value_to_double(&accel_x),
 			sensor_value_to_double(&accel_y),
 			sensor_value_to_double(&accel_z),
@@ -194,7 +215,9 @@ void app_work_sensor_read(void) {
 			intensity.val1,
 			red.val1,
 			green.val1,
-			blue.val1
+			blue.val1,
+			bat_voltage,
+			rrsp			
 			);
 
 	 LOG_DBG("%s",json_buf);
