@@ -83,7 +83,7 @@ void main(void)
 {
 	int err;
 
-	LOG_DBG("Start Golioth Soil Moisture Monitor sample");
+	LOG_INF("Start Golioth Soil Moisture Monitor sample, FW ver %s",CONFIG_MCUBOOT_IMAGE_VERSION);
 
 	/* Get system thread id so loop delay change event can wake main */
 	_system_thread = k_current_get();
