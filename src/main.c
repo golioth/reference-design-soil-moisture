@@ -19,6 +19,13 @@ LOG_MODULE_REGISTER(golioth_soil_moisture, LOG_LEVEL_DBG);
 #include "app_settings.h"
 #include "app_state.h"
 
+#if defined(CONFIG_NRF_MODEM_LIB)
+#include <modem/lte_lc.h>
+#include <modem/nrf_modem_lib.h>
+#include <modem/modem_info.h>
+#include <nrf_modem.h>
+#endif
+
 #include <zephyr/drivers/gpio.h>
 
 #define DEBOUNCE_TIMEOUT_MS 100
@@ -126,7 +133,7 @@ void main(void)
 	/* Set up user button */
 	err = gpio_pin_configure_dt(&user_btn, GPIO_INPUT);
 	if (err != 0) {
-		printk("Error %d: failed to configure %s pin %d\n",
+		LOG_ERR("Error %d: failed to configure %s pin %d\n",
 				err, user_btn.port->name, user_btn.pin);
 		return;
 	}
@@ -134,13 +141,20 @@ void main(void)
 	err = gpio_pin_interrupt_configure_dt(&user_btn,
 	                                      GPIO_INT_EDGE_TO_ACTIVE);
 	if (err != 0) {
-		printk("Error %d: failed to configure interrupt on %s pin %d\n",
+		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d\n",
 				err, user_btn.port->name, user_btn.pin);
 		return;
 	}
 
 	gpio_init_callback(&button_cb_data, button_pressed, BIT(user_btn.pin));
 	gpio_add_callback(user_btn.port, &button_cb_data);
+
+	err = modem_info_init();
+	if (err) {
+		LOG_ERR("Failed initializing modem info module, error: %d\n",
+			err);
+	}
+
 
 	while (true) {
 		app_work_submit();
