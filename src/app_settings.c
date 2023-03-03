@@ -50,6 +50,7 @@ int32_t get_moisture_level_threshold(uint32_t moisture_threshold)
 
 	default:
 		LOG_ERR("Passed invalid value to get_moisture_level() function");
+		return -ENOTSUP;
 		break;
 	}
 
