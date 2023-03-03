@@ -38,7 +38,6 @@ static struct golioth_client *client = GOLIOTH_SYSTEM_CLIENT_GET();
 K_SEM_DEFINE(connected, 0, 1);
 K_SEM_DEFINE(dfu_status_update, 0, 1);
 
-static int32_t _loop_delay_s = 60;
 static k_tid_t _system_thread = 0;
 
 static const struct gpio_dt_spec golioth_led = GPIO_DT_SPEC_GET(
@@ -118,11 +117,11 @@ void button_pressed(const struct device *dev, struct gpio_callback *cb,
 	// Software timer debounce
 
 	uint64_t now = k_uptime_get();
-	LOG_DBG("Now: %d",now);
+	LOG_DBG("Now: %lld", now);
 	// printk("Now is %lld, last time is %lld\n", now, last_time); // debug debounce
 	if ((now - last_time) > DEBOUNCE_TIMEOUT_MS)
 	{
-		LOG_DBG("Now: %d, Last time: %d, Difference: %d", now, last_time, (now-last_time));
+		LOG_DBG("Now: %lld, Last time: %lld, Difference: %lld", now, last_time, (now-last_time));
 		k_wakeup(_system_thread);
 	}
 	last_time = now;

@@ -10,7 +10,9 @@ LOG_MODULE_REGISTER(app_work, LOG_LEVEL_DBG);
 #include <net/golioth/system_client.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/sensor.h>
+#include <stdlib.h>
 #include <drivers/i2c.h>
+#include "app_settings.h"
 
 #if defined(CONFIG_NRF_MODEM_LIB)
 #include <modem/lte_lc.h>
