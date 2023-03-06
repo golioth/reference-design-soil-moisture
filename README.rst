@@ -107,5 +107,4 @@ The following RPCs can be initiated in the Remote Procedure Call menu of the
    * ``3``: ``LOG_LEVEL_INF``
    * ``4``: ``LOG_LEVEL_DBG``
 
-
 .. _Golioth Console: https://console.golioth.io
