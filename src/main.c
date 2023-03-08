@@ -150,6 +150,8 @@ void main(void)
 
 	LOG_INF("Start Golioth Soil Moisture Monitor sample, FW ver %s",CONFIG_MCUBOOT_IMAGE_VERSION);
 
+	LOG_INF("Firmware version: %s", CONFIG_MCUBOOT_IMAGE_VERSION);
+
 	/* Update Ostentus LEDS using bitmask (Power On and Battery)*/
 	led_bitmask(LED_POW | LED_BAT);
 
