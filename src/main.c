@@ -150,11 +150,12 @@ void main(void)
 
 	LOG_INF("Start Golioth Soil Moisture Monitor sample, FW ver %s",CONFIG_MCUBOOT_IMAGE_VERSION);
 
-	/* Update Ostentus LEDS using bitmask (Power On)*/
-	led_bitmask(LED_POW);
+	/* Update Ostentus LEDS using bitmask (Power On and Battery)*/
+	led_bitmask(LED_POW | LED_BAT);
 
 	/* Show Golioth Logo on Ostentus ePaper screen */
 	show_splash();
+	k_sleep(K_SECONDS(4));
 
 	/* Get system thread id so loop delay change event can wake main */
 	_system_thread = k_current_get();
