@@ -82,11 +82,6 @@ void app_work_sensor_read(void) {
 		return;
 	}
 
-	/* For this demo, we just send Hello to Golioth */
-	static uint8_t counter = 0;
-
-	LOG_INF("Sending hello! %d", counter);
-
 	/* Request battery voltage data from the modem. */
 	err = modem_info_short_get(MODEM_INFO_BATTERY, &bat_voltage);
 	if (err != sizeof(bat_voltage)) {
@@ -236,12 +231,12 @@ void app_work_sensor_read(void) {
 	 *  -values should be sent as strings
 	 *  -use the enum from app_work.h for slide key values
 	 */
-	snprintk(json_buf, 6, "%d", counter);
-	slide_set(UP_COUNTER, json_buf, strlen(json_buf));
-	snprintk(json_buf, 6, "%d", 255-counter);
-	slide_set(DN_COUNTER, json_buf, strlen(json_buf));
-
-	++counter;
+	snprintk(json_buf, sizeof(json_buf), "%d", moisture_readings);
+	slide_set(MOISTURE_READING, json_buf, strlen(json_buf));
+	snprintk(json_buf, sizeof(json_buf), "%d", moisture_level);
+	slide_set(MOISTURE_LEVEL, json_buf, strlen(json_buf));
+	snprintk(json_buf, sizeof(json_buf), "%d", intensity.val1);
+	slide_set(LIGHT_INT, json_buf, strlen(json_buf));
 }
 
 void app_work_init(struct golioth_client* work_client) {

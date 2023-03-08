@@ -229,15 +229,12 @@ void main(void)
 			err);
 	}
 
-	/* Set up a slideshow on Ostentus
-	 *  - add up to 256 slides
-	 *  - use the enum in app_work.h to add new keys
-	 *  - values are updated using these keys (see app_work.c)
-	 */
-	slide_add(UP_COUNTER, "Counter", strlen("Counter"));
-	slide_add(DN_COUNTER, "Anti-counter", strlen("Anti-counter"));
+	/* Set up a slideshow on Ostentus */
+	slide_add(MOISTURE_READING, M_READING_LABEL, strlen(M_READING_LABEL));
+	slide_add(MOISTURE_LEVEL, M_LEVEL_LABEL, strlen(M_LEVEL_LABEL));
+	slide_add(LIGHT_INT, LIGHT_INT_LABEL, strlen(LIGHT_INT_LABEL));
 	/* Set the title ofthe Ostentus summary slide (optional) */
-	summary_title("Counters:", strlen("Counters:"));
+	summary_title(SLIDESHOW_TITLE, strlen(SLIDESHOW_TITLE));
 	/* Start Ostentus slideshow with 30 second delay between slides */
 	slideshow(30000);
 
