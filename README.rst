@@ -107,9 +107,5 @@ The following RPCs can be initiated in the Remote Procedure Call menu of the
    * ``3``: ``LOG_LEVEL_INF``
    * ``4``: ``LOG_LEVEL_DBG``
 
-``clean_pm_sensor``
-   Initiate the SPS30 particulate matter fan-cleaning procedure manually. The
-   fan cleaning procedure takes approximately 10s to complete.
-
 
 .. _Golioth Console: https://console.golioth.io
