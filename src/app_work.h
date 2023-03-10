@@ -16,15 +16,17 @@ void sensor_init(void);
  * inserting elements with the name of your choice to this enum.
  */
 typedef enum {
-    MOISTURE_READING,
-    MOISTURE_LEVEL,
-    LIGHT_INT
+    MOISTURE_TEMP,
+    MOISTURE_LIGHT_INT,
+    MOISTURE_READING_KEY,
+    MOISTURE_LEVEL_KEY,    
 }slide_key;
 
-/* Ostentus slide labels */
+// /* Ostentus slide labels */
 #define SLIDESHOW_TITLE "Soil Moisture"
 #define M_READING_LABEL "Moisture Reading:"
 #define M_LEVEL_LABEL "Moisture Level:"
-#define LIGHT_INT_LABEL "Light Level:"
+#define M_LIGHT_INT_LABEL "Light Level:"
+#define M_TEMP_LABEL "Temp Level:"
 
 #endif /* __APP_WORK_H__ */
