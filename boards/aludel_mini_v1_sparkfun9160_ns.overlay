@@ -1,5 +1,6 @@
 &i2c1 {
     status = "okay";
+	zephyr,concat-buf-size = <48>;
     bme280@76 {
         compatible = "bosch,bme280";
         reg = <0x76>;
