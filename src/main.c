@@ -234,9 +234,11 @@ void main(void)
 
 	/* Set up a slideshow on Ostentus */
 	slide_add(MOISTURE_READING_KEY, M_READING_LABEL, strlen(M_READING_LABEL));
-	// slide_add(MOISTURE_LEVEL_KEY, M_LEVEL_LABEL, strlen(M_LEVEL_LABEL));
-	// slide_add(MOISTURE_LIGHT_INT, M_LIGHT_INT_LABEL, strlen(M_LIGHT_INT_LABEL));
-	slide_add(MOISTURE_TEMP, M_TEMP_LABEL, strlen(M_TEMP_LABEL));
+	slide_add(MOISTURE_LEVEL_KEY, M_LEVEL_LABEL, strlen(M_LEVEL_LABEL));
+	slide_add(MOISTURE_LIGHT_INT, M_LIGHT_INT_LABEL, strlen(M_LIGHT_INT_LABEL));
+	slide_add(TEMPERATURE, M_TEMP_LABEL, strlen(M_TEMP_LABEL));
+	slide_add(PRESSURE, M_PRESSURE_LABEL, strlen(M_PRESSURE_LABEL));
+	slide_add(HUMIDITY, M_HUMIDITY_LABEL, strlen(M_HUMIDITY_LABEL));
 	/* Set the title ofthe Ostentus summary slide (optional) */
 	summary_title(SLIDESHOW_TITLE, strlen(SLIDESHOW_TITLE));
 	/* Start Ostentus slideshow with 30 second delay between slides */
