@@ -13,11 +13,11 @@ LOG_MODULE_REGISTER(app_settings, LOG_LEVEL_DBG);
 #define MAX_MOISTURE_VALUE 5000
 
 static int32_t _loop_delay_s = 60;
-static int32_t _MOISTURE_LEVEL_0 = 200;
-static int32_t _MOISTURE_LEVEL_20 = 600;
-static int32_t _MOISTURE_LEVEL_40 = 1500;
-static int32_t _MOISTURE_LEVEL_60 = 2500;
-static int32_t _MOISTURE_LEVEL_80 = 3000;
+static int32_t _MOISTURE_LEVEL_0 = 3400;
+static int32_t _MOISTURE_LEVEL_20 = 3200;
+static int32_t _MOISTURE_LEVEL_40 = 3000;
+static int32_t _MOISTURE_LEVEL_60 = 2800;
+static int32_t _MOISTURE_LEVEL_80 = 2600;
 
 
 int32_t get_loop_delay_s(void) {

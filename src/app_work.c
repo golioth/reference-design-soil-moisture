@@ -233,13 +233,19 @@ void app_work_sensor_read(void) {
 	 */
 	snprintk(json_buf, sizeof(json_buf), "%d", moisture_readings);
 	slide_set(MOISTURE_READING_KEY, json_buf, strlen(json_buf));
-	// snprintk(json_buf, sizeof(json_buf), "%d", moisture_level);
-	// slide_set(MOISTURE_LEVEL_KEY, json_buf, strlen(json_buf));
-	// snprintk(json_buf, sizeof(json_buf), "%d", intensity.val1);
-	// slide_set(MOISTURE_LIGHT_INT, json_buf, strlen(json_buf));
+	snprintk(json_buf, sizeof(json_buf), "%d", moisture_level);
+	slide_set(MOISTURE_LEVEL_KEY, json_buf, strlen(json_buf));
+	snprintk(json_buf, sizeof(json_buf), "%d", intensity.val1);
+	slide_set(MOISTURE_LIGHT_INT, json_buf, strlen(json_buf));
 	snprintk(json_buf, sizeof(json_buf), "%d.%d C",
 		temp.val1, temp.val2 / 10000);
-	slide_set(MOISTURE_TEMP, json_buf, strlen(json_buf));
+	slide_set(TEMPERATURE, json_buf, strlen(json_buf));
+	snprintk(json_buf, sizeof(json_buf), "%d.%d kPa",
+		pressure.val1, pressure.val2 / 10000);
+	slide_set(PRESSURE, json_buf, strlen(json_buf));
+	snprintk(json_buf, sizeof(json_buf), "%d.%d %%RH",
+		humidity.val1, humidity.val2 / 10000);
+	slide_set(HUMIDITY, json_buf, strlen(json_buf));
 }
 
 void app_work_init(struct golioth_client* work_client) {
