@@ -20,7 +20,8 @@ static int32_t _MOISTURE_LEVEL_60 = 2800;
 static int32_t _MOISTURE_LEVEL_80 = 2600;
 
 
-int32_t get_loop_delay_s(void) {
+int32_t get_loop_delay_s(void)
+{
 	return _loop_delay_s;
 }
 
@@ -58,7 +59,8 @@ int32_t get_moisture_level_threshold(uint32_t moisture_threshold)
 
 enum golioth_settings_status on_setting(
 		const char *key,
-		const struct golioth_settings_value *value) {
+		const struct golioth_settings_value *value)
+{
 
 	LOG_DBG("Received setting: key = %s, type = %d", key, value->type);
 	if (strcmp(key, "LOOP_DELAY_S") == 0) {
@@ -75,8 +77,7 @@ enum golioth_settings_status on_setting(
 		/* Only update if value has changed */
 		if (_loop_delay_s == (int32_t)value->i64) {
 			LOG_DBG("Received LOOP_DELAY_S already matches local value.");
-		}
-		else {
+		} else {
 			_loop_delay_s = (int32_t)value->i64;
 			LOG_INF("Set loop delay to %d seconds", _loop_delay_s);
 
@@ -209,7 +210,8 @@ enum golioth_settings_status on_setting(
 	return GOLIOTH_SETTINGS_KEY_NOT_RECOGNIZED;
 }
 
-int app_register_settings(struct golioth_client *settings_client) {
+int app_register_settings(struct golioth_client *settings_client)
+{
 	int err = golioth_settings_register_callback(settings_client, on_setting);
 
 	if (err) {

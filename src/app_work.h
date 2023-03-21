@@ -7,7 +7,7 @@
 #ifndef __APP_WORK_H__
 #define __APP_WORK_H__
 
-void app_work_init(struct golioth_client* work_client);
+void app_work_init(struct golioth_client *work_client);
 void app_work_sensor_read(void);
 void sensor_init(void);
 
@@ -17,12 +17,12 @@ void sensor_init(void);
  */
 typedef enum {
     MOISTURE_READING_KEY,
-    MOISTURE_LEVEL_KEY,    
+    MOISTURE_LEVEL_KEY,
     MOISTURE_LIGHT_INT,
     TEMPERATURE,
     PRESSURE,
     HUMIDITY,
-}slide_key;
+} slide_key;
 
 // /* Ostentus slide labels */
 #define SLIDESHOW_TITLE "Soil Moisture"
