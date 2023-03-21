@@ -8,7 +8,7 @@
 #define __APP_SETTINGS_H__
 
 int32_t get_loop_delay_s(void);
-int32_t get_moisture_level_threshold(uint32_t);
+int32_t get_moisture_level_threshold(uint32_t moisture_threshold);
 
 int app_register_settings(struct golioth_client *settings_client);
 
