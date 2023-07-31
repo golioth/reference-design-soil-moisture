@@ -19,19 +19,18 @@ static int32_t _MOISTURE_LEVEL_40 = 3000;
 static int32_t _MOISTURE_LEVEL_60 = 2800;
 static int32_t _MOISTURE_LEVEL_80 = 2600;
 
-
-int32_t get_loop_delay_s(void) {
+int32_t get_loop_delay_s(void)
+{
 	return _loop_delay_s;
 }
 
 int32_t get_moisture_level_threshold(uint32_t moisture_threshold)
 {
-	switch (moisture_threshold)
-	{
+	switch (moisture_threshold) {
 	case 0:
 		return _MOISTURE_LEVEL_0;
 		break;
-	
+
 	case 20:
 		return _MOISTURE_LEVEL_20;
 		break;
@@ -39,7 +38,7 @@ int32_t get_moisture_level_threshold(uint32_t moisture_threshold)
 	case 40:
 		return _MOISTURE_LEVEL_40;
 		break;
-	
+
 	case 60:
 		return _MOISTURE_LEVEL_60;
 		break;
@@ -53,12 +52,11 @@ int32_t get_moisture_level_threshold(uint32_t moisture_threshold)
 		return -ENOTSUP;
 		break;
 	}
-
 }
 
-enum golioth_settings_status on_setting(
-		const char *key,
-		const struct golioth_settings_value *value) {
+enum golioth_settings_status on_setting(const char *key,
+					const struct golioth_settings_value *value)
+{
 
 	LOG_DBG("Received setting: key = %s, type = %d", key, value->type);
 	if (strcmp(key, "LOOP_DELAY_S") == 0) {
@@ -75,8 +73,7 @@ enum golioth_settings_status on_setting(
 		/* Only update if value has changed */
 		if (_loop_delay_s == (int32_t)value->i64) {
 			LOG_DBG("Received LOOP_DELAY_S already matches local value.");
-		}
-		else {
+		} else {
 			_loop_delay_s = (int32_t)value->i64;
 			LOG_INF("Set loop delay to %d seconds", _loop_delay_s);
 
@@ -99,8 +96,7 @@ enum golioth_settings_status on_setting(
 		/* Only update if value has changed */
 		if (_MOISTURE_LEVEL_0 == (int32_t)value->i64) {
 			LOG_DBG("Received MOISTURE_LEVEL_0 already matches local value.");
-		}
-		else {
+		} else {
 			_MOISTURE_LEVEL_0 = (int32_t)value->i64;
 			LOG_INF("Set Moisture Level 0 to %d", _MOISTURE_LEVEL_0);
 
@@ -123,8 +119,7 @@ enum golioth_settings_status on_setting(
 		/* Only update if value has changed */
 		if (_MOISTURE_LEVEL_20 == (int32_t)value->i64) {
 			LOG_DBG("Received MOISTURE_LEVEL_20 already matches local value.");
-		}
-		else {
+		} else {
 			_MOISTURE_LEVEL_20 = (int32_t)value->i64;
 			LOG_INF("Set Moisture Level 20 to %d", _MOISTURE_LEVEL_20);
 
@@ -147,8 +142,7 @@ enum golioth_settings_status on_setting(
 		/* Only update if value has changed */
 		if (_MOISTURE_LEVEL_40 == (int32_t)value->i64) {
 			LOG_DBG("Received MOISTURE_LEVEL_40 already matches local value.");
-		}
-		else {
+		} else {
 			_MOISTURE_LEVEL_40 = (int32_t)value->i64;
 			LOG_INF("Set Moisture Level 40 to %d", _MOISTURE_LEVEL_40);
 
@@ -171,8 +165,7 @@ enum golioth_settings_status on_setting(
 		/* Only update if value has changed */
 		if (_MOISTURE_LEVEL_60 == (int32_t)value->i64) {
 			LOG_DBG("Received MOISTURE_LEVEL_60 already matches local value.");
-		}
-		else {
+		} else {
 			_MOISTURE_LEVEL_60 = (int32_t)value->i64;
 			LOG_INF("Set Moisture Level 60 to %d", _MOISTURE_LEVEL_60);
 
@@ -195,8 +188,7 @@ enum golioth_settings_status on_setting(
 		/* Only update if value has changed */
 		if (_MOISTURE_LEVEL_80 == (int32_t)value->i64) {
 			LOG_DBG("Received MOISTURE_LEVEL_80 already matches local value.");
-		}
-		else {
+		} else {
 			_MOISTURE_LEVEL_80 = (int32_t)value->i64;
 			LOG_INF("Set Moisture Level 80 to %d", _MOISTURE_LEVEL_80);
 
@@ -209,7 +201,8 @@ enum golioth_settings_status on_setting(
 	return GOLIOTH_SETTINGS_KEY_NOT_RECOGNIZED;
 }
 
-int app_register_settings(struct golioth_client *settings_client) {
+int app_register_settings(struct golioth_client *settings_client)
+{
 	int err = golioth_settings_register_callback(settings_client, on_setting);
 
 	if (err) {
