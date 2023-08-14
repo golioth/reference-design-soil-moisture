@@ -13,6 +13,7 @@ LOG_MODULE_REGISTER(golioth_soil_moisture, LOG_LEVEL_DBG);
 #include <net/golioth/system_client.h>
 #include <samples/common/net_connect.h>
 #include <zephyr/net/coap.h>
+#include <zephyr/drivers/gpio.h>
 
 #include "dfu/app_dfu.h"
 #include "app_work.h"
@@ -21,22 +22,22 @@ LOG_MODULE_REGISTER(golioth_soil_moisture, LOG_LEVEL_DBG);
 #include "app_state.h"
 #include "libostentus/libostentus.h"
 
-#if defined(CONFIG_NRF_MODEM_LIB)
-#include <modem/lte_lc.h>
-#include <modem/nrf_modem_lib.h>
-#include <modem/modem_info.h>
-#include <nrf_modem.h>
+#ifdef CONFIG_ALUDEL_BATTERY_MONITOR
+#include "battery_monitor/battery.h"
 #endif
 
-#include <zephyr/drivers/gpio.h>
+#ifdef CONFIG_MODEM_INFO
+#include <modem/modem_info.h>
+#endif
 
 #define DEBOUNCE_TIMEOUT_MS 100
-static uint64_t last_time;
-
-static struct golioth_client *client = GOLIOTH_SYSTEM_CLIENT_GET();
 
 K_SEM_DEFINE(connected, 0, 1);
 K_SEM_DEFINE(dfu_status_update, 0, 1);
+
+static uint64_t last_time;
+
+static struct golioth_client *client = GOLIOTH_SYSTEM_CLIENT_GET();
 
 static k_tid_t _system_thread = 0;
 
@@ -44,118 +45,158 @@ static const struct gpio_dt_spec golioth_led = GPIO_DT_SPEC_GET(DT_ALIAS(golioth
 static const struct gpio_dt_spec user_btn = GPIO_DT_SPEC_GET(DT_ALIAS(sw1), gpios);
 static struct gpio_callback button_cb_data;
 
-/* Set (unset) LED indicators for active Golioth connection */
-static void golioth_connection_led_set(uint8_t state)
-{
-	uint8_t pin_state = state ? 1 : 0;
 
-	/* Turn on Golioth logo LED once connected */
-	gpio_pin_set_dt(&golioth_led, pin_state);
-
-	/* Change the state of the Golioth LED on Ostentus */
-	led_golioth_set(pin_state);
-}
-
-/* Set (unset) LED indicators for active internet connection */
-static void network_led_set(uint8_t state)
-{
-	uint8_t pin_state = state ? 1 : 0;
-
-	/* Change the state of the Internet LED on Ostentus */
-	led_internet_set(pin_state);
-}
-
-static void golioth_on_connect(struct golioth_client *client)
-{
-	k_sem_give(&connected);
-
-	LOG_INF("Registering observations with Golioth");
-	app_dfu_observe();
-	app_register_settings(client);
-	app_register_rpc(client);
-	app_state_observe();
-
-	static bool initial_connection = true;
-
-	if (initial_connection) {
-		initial_connection = false;
-
-		/* Report current DFU version to Golioth */
-		//ToDo: we can't call this here because it's sync (deadlock)
-		//app_dfu_report_state_to_golioth();
-		//This semaphore is a workaround
-		k_sem_give(&dfu_status_update);
-
-		/* Indicate connection using LEDs */
-		golioth_connection_led_set(1);
-	}
-}
-
-static void lte_handler(const struct lte_lc_evt *const evt)
-{
-	switch (evt->type) {
-	case LTE_LC_EVT_NW_REG_STATUS:
-		if ((evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_HOME) &&
-		    (evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_ROAMING)) {
-			break;
-		}
-
-		LOG_INF("Connected to LTE network");
-		network_led_set(1);
-
-		golioth_system_client_start();
-
-		break;
-	case LTE_LC_EVT_PSM_UPDATE:
-	case LTE_LC_EVT_EDRX_UPDATE:
-	case LTE_LC_EVT_RRC_UPDATE:
-	case LTE_LC_EVT_CELL_UPDATE:
-	case LTE_LC_EVT_LTE_MODE_UPDATE:
-	case LTE_LC_EVT_TAU_PRE_WARNING:
-	case LTE_LC_EVT_NEIGHBOR_CELL_MEAS:
-	case LTE_LC_EVT_MODEM_SLEEP_EXIT_PRE_WARNING:
-	case LTE_LC_EVT_MODEM_SLEEP_EXIT:
-	case LTE_LC_EVT_MODEM_SLEEP_ENTER:
-		/* Callback events carrying LTE link data */
-		break;
-	default:
-		break;
-	}
-}
+/* Forward declarations */
+void golioth_connection_led_set(uint8_t state);
+void network_led_set(uint8_t state);
 
 void wake_system_thread(void)
 {
 	k_wakeup(_system_thread);
 }
 
-void button_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
+static void golioth_on_connect(struct golioth_client *client)
 {
-	/*Software timer debounce */
-	uint64_t now = k_uptime_get();
+	k_sem_give(&connected);
+	golioth_connection_led_set(1);
 
-	LOG_DBG("Now: %lld", now);
+	LOG_INF("Registering observations with Golioth");
+	app_dfu_observe();
+	app_settings_observe();
+	app_rpc_observe();
+	app_state_observe();
 
-	if ((now - last_time) > DEBOUNCE_TIMEOUT_MS) {
-		LOG_DBG("Now: %lld, Last time: %lld, Difference: %lld", now, last_time, (now-last_time));
-		k_wakeup(_system_thread);
+	if (k_sem_take(&dfu_status_unreported, K_NO_WAIT) == 0) {
+		/* Report firmware update status on first connect after power up */
+		app_dfu_report_state_to_golioth();
 	}
-
-	last_time = now;
 }
 
-void main(void)
+#ifdef CONFIG_SOC_NRF9160
+static void process_lte_connected(void)
+{
+	network_led_set(1);
+	golioth_system_client_start();
+}
+
+/**
+ * @brief Perform actions based on LTE connection events
+ *
+ * This is copied from the Golioth samples/common/nrf91_lte_monitor.c to allow us to perform custom
+ * actions (turn on LED and start Golioth client) when a network connection becomes available.
+ *
+ * Set `CONFIG_GOLIOTH_SAMPLE_NRF91_LTE_MONITOR=n` so that the common sample code doesn't collide.
+ *
+ * @param evt
+ */
+static void lte_handler(const struct lte_lc_evt *const evt)
+{
+	switch (evt->type) {
+	case LTE_LC_EVT_NW_REG_STATUS:
+		switch (evt->nw_reg_status) {
+		case LTE_LC_NW_REG_NOT_REGISTERED:
+			LOG_INF("Network: Not registered");
+			break;
+		case LTE_LC_NW_REG_REGISTERED_HOME:
+			LOG_INF("Network: Registered (home)");
+			process_lte_connected();
+			break;
+		case LTE_LC_NW_REG_SEARCHING:
+			LOG_INF("Network: Searching");
+			break;
+		case LTE_LC_NW_REG_REGISTRATION_DENIED:
+			LOG_INF("Network: Registration denied");
+			break;
+		case LTE_LC_NW_REG_UNKNOWN:
+			LOG_INF("Network: Unknown");
+			break;
+		case LTE_LC_NW_REG_REGISTERED_ROAMING:
+			LOG_INF("Network: Registered (roaming)");
+			process_lte_connected();
+			break;
+		case LTE_LC_NW_REG_REGISTERED_EMERGENCY:
+			LOG_INF("Network: Registered (emergency)");
+			break;
+		case LTE_LC_NW_REG_UICC_FAIL:
+			LOG_INF("Network: UICC fail");
+			break;
+		}
+		break;
+	case LTE_LC_EVT_RRC_UPDATE:
+		switch (evt->rrc_mode) {
+		case LTE_LC_RRC_MODE_CONNECTED:
+			LOG_DBG("RRC: Connected");
+			break;
+		case LTE_LC_RRC_MODE_IDLE:
+			LOG_DBG("RRC: Idle");
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+}
+#endif /* CONFIG_SOC_NRF9160 */
+
+
+#ifdef CONFIG_MODEM_INFO
+static void log_modem_firmware_version(void)
+{
+	char sbuf[128];
+
+	/* Initialize modem info */
+	int err = modem_info_init();
+
+	if (err) {
+		LOG_ERR("Failed to initialize modem info: %d", err);
+	}
+
+	/* Log modem firmware version */
+	modem_info_string_get(MODEM_INFO_FW_VERSION, sbuf, sizeof(sbuf));
+	LOG_INF("Modem firmware version: %s", sbuf);
+}
+#endif
+
+void button_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
+{
+	LOG_DBG("Button pressed at %d", k_cycle_get_32());
+	/* This function is an Interrupt Service Routine. Do not call functions that
+	 * use other threads, or perform long-running operations here
+	 */
+	k_wakeup(_system_thread);
+}
+
+/* Set (unset) LED indicators for active Golioth connection */
+void golioth_connection_led_set(uint8_t state)
+{
+	uint8_t pin_state = state ? 1 : 0;
+	/* Turn on Golioth logo LED once connected */
+	gpio_pin_set_dt(&golioth_led, pin_state);
+	/* Change the state of the Golioth LED on Ostentus */
+	led_golioth_set(pin_state);
+}
+
+/* Set (unset) LED indicators for active internet connection */
+void network_led_set(uint8_t state)
+{
+	uint8_t pin_state = state ? 1 : 0;
+	/* Change the state of the Internet LED on Ostentus */
+	led_internet_set(pin_state);
+}
+
+int main(void)
 {
 	int err;
 
-	LOG_INF("Start Golioth Soil Moisture Monitor sample, FW ver %s", CONFIG_MCUBOOT_IMAGE_VERSION);
+	LOG_INF("Start Golioth Soil Moisture Monitor sample");
 	LOG_INF("Firmware version: %s", CONFIG_MCUBOOT_IMAGE_VERSION);
+	IF_ENABLED(CONFIG_MODEM_INFO, (log_modem_firmware_version();));
 
 	/* Update Ostentus LEDS using bitmask (Power On and Battery)*/
 	led_bitmask(LED_POW | LED_BAT);
 
 	/* Show Golioth Logo on Ostentus ePaper screen */
 	show_splash();
-	k_sleep(K_SECONDS(4));
 
 	/* Get system thread id so loop delay change event can wake main */
 	_system_thread = k_current_get();
@@ -175,20 +216,30 @@ void main(void)
 	/* Initialize DFU components */
 	app_dfu_init(client);
 
+	/* Initialize app settings */
+	app_settings_init(client);
+
+	/* Initialize app RPC */
+	app_rpc_init(client);
+
 	/*Initialize sensors using sensor subsystem*/
 	sensor_init();
 
 	/* Register Golioth on_connect callback */
 	client->on_connect = golioth_on_connect;
 
-	/* Run WiFi/DHCP if necessary */
-	if (IS_ENABLED(CONFIG_GOLIOTH_SAMPLES_COMMON)) {
-		net_connect();
-	}
+	/* Start LTE asynchronously if the nRF9160 is used
+	 * Golioth Client will start automatically when LTE connects
+	 */
+	IF_ENABLED(CONFIG_SOC_NRF9160, (LOG_INF("Connecting to LTE, this may take some time...");
+					lte_lc_init_and_connect_async(lte_handler);));
 
-	if (IS_ENABLED(CONFIG_LTE_AUTO_INIT_AND_CONNECT)) {
-		LOG_INF("Device is using automatic LTE control");
-		network_led_set(1);
+	/* If nRF9160 is not used, start the Golioth Client and block until connected */
+	if (!IS_ENABLED(CONFIG_SOC_NRF9160)) {
+		/* Run WiFi/DHCP if necessary */
+		if (IS_ENABLED(CONFIG_GOLIOTH_SAMPLES_COMMON)) {
+			net_connect();
+		}
 
 		/* Start Golioth client */
 		golioth_system_client_start();
@@ -196,41 +247,33 @@ void main(void)
 		/* Block until connected to Golioth */
 		k_sem_take(&connected, K_FOREVER);
 
-	} else if (IS_ENABLED(CONFIG_SOC_NRF9160)) {
-		LOG_INF("Connecting to LTE network. This may take a few minutes...");
-
-		err = lte_lc_init_and_connect_async(lte_handler);
-		if (err) {
-			LOG_ERR("lte_lc_init_and_connect_async, error: %d", err);
-			return;
-		}
+		/* Turn on Golioth logo LED once connected */
+		gpio_pin_set_dt(&golioth_led, 1);
 	}
 
 	/* Set up user button */
 	err = gpio_pin_configure_dt(&user_btn, GPIO_INPUT);
-	if (err != 0) {
-		LOG_ERR("Error %d: failed to configure %s pin %d\n",
-			err, user_btn.port->name, user_btn.pin);
-		return;
+	if (err) {
+		LOG_ERR("Error %d: failed to configure %s pin %d", err,
+			user_btn.port->name, user_btn.pin);
+		return err;
 	}
 
 	err = gpio_pin_interrupt_configure_dt(&user_btn, GPIO_INT_EDGE_TO_ACTIVE);
-
-	if (err != 0) {
-		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d\n",
-			err, user_btn.port->name, user_btn.pin);
-		return;
+	if (err) {
+		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d", err,
+			user_btn.port->name, user_btn.pin);
+		return err;
 	}
 
 	gpio_init_callback(&button_cb_data, button_pressed, BIT(user_btn.pin));
 	gpio_add_callback(user_btn.port, &button_cb_data);
 
-	err = modem_info_init();
-	if (err) {
-		LOG_ERR("Failed initializing modem info module, error: %d", err);
-	}
-
-	/* Set up a slideshow on Ostentus */
+	/* Set up a slideshow on Ostentus
+	 *  - add up to 256 slides
+	 *  - use the enum in app_work.h to add new keys
+	 *  - values are updated using these keys (see app_work.c)
+	 */
 	slide_add(MOISTURE_READING_KEY, M_READING_LABEL, strlen(M_READING_LABEL));
 	slide_add(MOISTURE_LEVEL_KEY, M_LEVEL_LABEL, strlen(M_LEVEL_LABEL));
 	slide_add(MOISTURE_LIGHT_INT, M_LIGHT_INT_LABEL, strlen(M_LIGHT_INT_LABEL));
