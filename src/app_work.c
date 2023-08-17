@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Golioth, Inc.
+ * Copyright (c) 2023 Golioth, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,17 +14,15 @@ LOG_MODULE_REGISTER(app_work, LOG_LEVEL_DBG);
 #include <zephyr/drivers/i2c.h>
 #include "app_settings.h"
 
-#if defined(CONFIG_NRF_MODEM_LIB)
-#include <modem/lte_lc.h>
-#include <modem/nrf_modem_lib.h>
-#include <modem/modem_info.h>
-#include <nrf_modem.h>
+#include "app_work.h"
+
+#ifdef CONFIG_LIB_OSTENTUS
+#include <libostentus.h>
+#endif
+#ifdef CONFIG_ALUDEL_BATTERY_MONITOR
+#include "battery_monitor/battery.h"
 #endif
 
-#include "app_work.h"
-#include "libostentus/libostentus.h"
-
-/* Golioth Client */
 static struct golioth_client *client;
 
 /* Sensors */
@@ -64,6 +62,11 @@ void app_work_sensor_read(void)
 	struct sensor_value green = {0};
 	struct sensor_value blue = {0};
 
+	IF_ENABLED(CONFIG_ALUDEL_BATTERY_MONITOR, (
+		read_and_report_battery();
+		slide_set(BATTERY_V, get_batt_v_str(), strlen(get_batt_v_str()));
+		slide_set(BATTERY_LVL, get_batt_lvl_str(), strlen(get_batt_lvl_str()));
+	));
 
 	/* Direct I2C access to MCP3221 */
 	uint8_t mcp3221[2] = {0};
@@ -78,22 +81,6 @@ void app_work_sensor_read(void)
 	{
 		LOG_ERR("Could not get i2c device\n");
 		return;
-	}
-
-	/* Request battery voltage from the modem. */
-	err = modem_info_short_get(MODEM_INFO_BATTERY, &bat_voltage);
-	if (err != sizeof(bat_voltage)) {
-		LOG_ERR("modem_info_short_get, error: %d", err);
-	} else  {
-		LOG_DBG("Modem voltage is %d", bat_voltage);
-	}
-
-	/* Request RRSP (signal strength) from the modem. */
-	err = modem_info_short_get(MODEM_INFO_RSRP, &rrsp);
-	if (err != sizeof(rrsp)) {
-		LOG_ERR("modem_info_short_get, error: %d", err);
-	} else {
-		LOG_DBG("Modem RRSP is %d", rrsp);
 	}
 
 	/* IMU sensor reading */
@@ -213,27 +200,30 @@ void app_work_sensor_read(void)
 		LOG_ERR("Failed to send sensor data to Golioth: %d", err);
 	}
 
-	/* Update slide values on Ostentus
-	 * - values should be sent as strings
-	 * - use the enum from app_work.h for slide key values
-	 */
-	snprintk(json_buf, sizeof(json_buf), "%d", moisture_reading);
-	slide_set(MOISTURE_READING_KEY, json_buf, strlen(json_buf));
+	IF_ENABLED(CONFIG_LIB_OSTENTUS, (
+		/* Update slide values on Ostentus
+		 *  -values should be sent as strings
+		 *  -use the enum from app_work.h for slide key values
+		 */
+		snprintk(json_buf, sizeof(json_buf), "%d", moisture_reading);
+		slide_set(MOISTURE_READING_KEY, json_buf, strlen(json_buf));
+	
+		snprintk(json_buf, sizeof(json_buf), "%d", moisture_level);
+		slide_set(MOISTURE_LEVEL_KEY, json_buf, strlen(json_buf));
+	
+		snprintk(json_buf, sizeof(json_buf), "%d", intensity.val1);
+		slide_set(MOISTURE_LIGHT_INT, json_buf, strlen(json_buf));
+	
+		snprintk(json_buf, sizeof(json_buf), "%d.%d C", temp.val1, (temp.val2 / 10000));
+		slide_set(TEMPERATURE, json_buf, strlen(json_buf));
+	
+		snprintk(json_buf, sizeof(json_buf), "%d.%d kPa", pressure.val1, (pressure.val2 / 10000));
+		slide_set(PRESSURE, json_buf, strlen(json_buf));
+	
+		snprintk(json_buf, sizeof(json_buf), "%d.%d %%RH", humidity.val1, (humidity.val2 / 10000));
+		slide_set(HUMIDITY, json_buf, strlen(json_buf));
 
-	snprintk(json_buf, sizeof(json_buf), "%d", moisture_level);
-	slide_set(MOISTURE_LEVEL_KEY, json_buf, strlen(json_buf));
-
-	snprintk(json_buf, sizeof(json_buf), "%d", intensity.val1);
-	slide_set(MOISTURE_LIGHT_INT, json_buf, strlen(json_buf));
-
-	snprintk(json_buf, sizeof(json_buf), "%d.%d C", temp.val1, (temp.val2 / 10000));
-	slide_set(TEMPERATURE, json_buf, strlen(json_buf));
-
-	snprintk(json_buf, sizeof(json_buf), "%d.%d kPa", pressure.val1, (pressure.val2 / 10000));
-	slide_set(PRESSURE, json_buf, strlen(json_buf));
-
-	snprintk(json_buf, sizeof(json_buf), "%d.%d %%RH", humidity.val1, (humidity.val2 / 10000));
-	slide_set(HUMIDITY, json_buf, strlen(json_buf));
+	));
 }
 
 void app_work_init(struct golioth_client *work_client)

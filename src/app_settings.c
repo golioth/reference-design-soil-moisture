@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Golioth, Inc.
+ * Copyright (c) 2023 Golioth, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -8,7 +8,11 @@
 LOG_MODULE_REGISTER(app_settings, LOG_LEVEL_DBG);
 
 #include <net/golioth/settings.h>
+
 #include "main.h"
+#include "app_settings.h"
+
+static struct golioth_client *client;
 
 #define MAX_MOISTURE_VALUE 5000
 
@@ -201,7 +205,25 @@ enum golioth_settings_status on_setting(const char *key,
 	return GOLIOTH_SETTINGS_KEY_NOT_RECOGNIZED;
 }
 
-int app_register_settings(struct golioth_client *settings_client)
+int app_settings_init(struct golioth_client *state_client)
+{
+	client = state_client;
+	int err = app_settings_register(client);
+
+	return err;
+}
+
+int app_settings_observe(void)
+{
+	int err = golioth_settings_observe(client);
+	if (err) {
+		LOG_ERR("Failed to observe settings: %d", err);
+	}
+
+	return err;
+}
+
+int app_settings_register(struct golioth_client *settings_client)
 {
 	int err = golioth_settings_register_callback(settings_client, on_setting);
 
