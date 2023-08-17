@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2022 Golioth, Inc.
+ * Copyright (c) 2023 Golioth, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 #ifndef __APP_WORK_H__
 #define __APP_WORK_H__
+
+#include <net/golioth/system_client.h>
 
 /* Ostentus slide labels */
 #define SLIDESHOW_TITLE         "Soil Moisture"
@@ -15,6 +17,9 @@
 #define M_TEMP_LABEL            "Temperature"
 #define M_PRESSURE_LABEL        "Pressure"
 #define M_HUMIDITY_LABEL        "Humidity"
+#define LABEL_BATTERY		"Battery"
+#define LABEL_FIRMWARE		"Firmware"
+#define SUMMARY_TITLE		"Air Quality"
 
 /**
  * Each Ostentus slide needs a unique key. You may add additional slides by
@@ -27,6 +32,11 @@ typedef enum {
 	TEMPERATURE,
 	PRESSURE,
 	HUMIDITY,
+#ifdef CONFIG_ALUDEL_BATTERY_MONITOR
+	BATTERY_V,
+	BATTERY_LVL,
+#endif
+	FIRMWARE
 } slide_key;
 
 void app_work_init(struct golioth_client *work_client);
