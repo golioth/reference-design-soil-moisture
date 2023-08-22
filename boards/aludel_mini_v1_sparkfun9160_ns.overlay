@@ -1,17 +1,23 @@
-&i2c1 {
-    status = "okay";
-	zephyr,concat-buf-size = <48>;
-    bme280@76 {
-        compatible = "bosch,bme280";
-        reg = <0x76>;
-        label = "BME280_I2C";
-    };
+/ {
+        aliases {
+                click-i2c = &i2c1;
+        };
+};
 
-    apds9960: apds9960@39 {
-		compatible = "avago,apds9960";
+&i2c1 {
+        status = "okay";
+	zephyr,concat-buf-size = <48>;
+        
+        bme280@76 {
+                compatible = "bosch,bme280";
+                reg = <0x76>;
+                label = "BME280_I2C";
+        };
+
+        apds9960: apds9960@39 {
+	        compatible = "avago,apds9960";
 		reg = <0x39>;
 		label = "APDS9960";
 		int-gpios = <&gpio0 16 (GPIO_ACTIVE_LOW)>;
-	};
-
+        };
 };
