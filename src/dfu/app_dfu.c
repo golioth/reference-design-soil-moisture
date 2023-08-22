@@ -39,7 +39,8 @@ struct dfu_ctx {
 static struct dfu_ctx update_ctx;
 static enum golioth_dfu_result dfu_initial_result = GOLIOTH_DFU_RESULT_INITIAL;
 
-extern void dfu_thread(void *d0, void *d1, void *d2) {
+extern void dfu_thread(void *d0, void *d1, void *d2)
+{
 	int err;
 
 	k_sem_take(&sem_downloading, K_FOREVER);
@@ -201,7 +202,8 @@ static int golioth_desired_update(struct golioth_req_rsp *rsp)
 	return 0;
 }
 
-void app_dfu_init(struct golioth_client* dfu_client) {
+void app_dfu_init(struct golioth_client *dfu_client)
+{
 	int err;
 
 	client = dfu_client;
@@ -222,14 +224,17 @@ void app_dfu_init(struct golioth_client* dfu_client) {
 	}
 }
 
-void app_dfu_observe(void) {
+void app_dfu_observe(void)
+{
 	int err = golioth_fw_observe_desired(client, golioth_desired_update, &update_ctx);
+
 	if (err) {
 		LOG_ERR("Failed to start observation of desired FW: %d", err);
 	}
 }
 
-void app_dfu_report_state_to_golioth(void) {
+void app_dfu_report_state_to_golioth(void)
+{
 	int err = golioth_fw_report_state(client, "main",
 				      current_version_str,
 				      NULL,

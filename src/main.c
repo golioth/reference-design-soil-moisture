@@ -31,7 +31,7 @@ LOG_MODULE_REGISTER(golioth_soil_moisture, LOG_LEVEL_DBG);
 #include <zephyr/drivers/gpio.h>
 
 #define DEBOUNCE_TIMEOUT_MS 100
-static uint64_t last_time = 0;
+static uint64_t last_time;
 
 static struct golioth_client *client = GOLIOTH_SYSTEM_CLIENT_GET();
 
@@ -40,18 +40,29 @@ K_SEM_DEFINE(dfu_status_update, 0, 1);
 
 static k_tid_t _system_thread = 0;
 
-static const struct gpio_dt_spec golioth_led = GPIO_DT_SPEC_GET(
-		DT_ALIAS(golioth_led), gpios);
-static const struct gpio_dt_spec user_btn = GPIO_DT_SPEC_GET(
-		DT_ALIAS(sw1), gpios);
+static const struct gpio_dt_spec golioth_led = GPIO_DT_SPEC_GET(DT_ALIAS(golioth_led), gpios);
+static const struct gpio_dt_spec user_btn = GPIO_DT_SPEC_GET(DT_ALIAS(sw1), gpios);
 static struct gpio_callback button_cb_data;
 
-/* forward declarations */
-void golioth_connection_led_set(uint8_t state);
-void network_led_set(uint8_t state);
+/* Set (unset) LED indicators for active Golioth connection */
+static void golioth_connection_led_set(uint8_t state)
+{
+	uint8_t pin_state = state ? 1 : 0;
 
-void wake_system_thread(void) {
-	k_wakeup(_system_thread);
+	/* Turn on Golioth logo LED once connected */
+	gpio_pin_set_dt(&golioth_led, pin_state);
+
+	/* Change the state of the Golioth LED on Ostentus */
+	led_golioth_set(pin_state);
+}
+
+/* Set (unset) LED indicators for active internet connection */
+static void network_led_set(uint8_t state)
+{
+	uint8_t pin_state = state ? 1 : 0;
+
+	/* Change the state of the Internet LED on Ostentus */
+	led_internet_set(pin_state);
 }
 
 static void golioth_on_connect(struct golioth_client *client)
@@ -65,12 +76,13 @@ static void golioth_on_connect(struct golioth_client *client)
 	app_state_observe();
 
 	static bool initial_connection = true;
+
 	if (initial_connection) {
 		initial_connection = false;
 
 		/* Report current DFU version to Golioth */
-		//FIXME: we can't call this here because it's sync (deadlock)
- 		//app_dfu_report_state_to_golioth();
+		//ToDo: we can't call this here because it's sync (deadlock)
+		//app_dfu_report_state_to_golioth();
 		//This semaphore is a workaround
 		k_sem_give(&dfu_status_update);
 
@@ -84,7 +96,7 @@ static void lte_handler(const struct lte_lc_evt *const evt)
 	switch (evt->type) {
 	case LTE_LC_EVT_NW_REG_STATUS:
 		if ((evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_HOME) &&
-		 (evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_ROAMING)) {
+		    (evt->nw_reg_status != LTE_LC_NW_REG_REGISTERED_ROAMING)) {
 			break;
 		}
 
@@ -106,50 +118,36 @@ static void lte_handler(const struct lte_lc_evt *const evt)
 	case LTE_LC_EVT_MODEM_SLEEP_ENTER:
 		/* Callback events carrying LTE link data */
 		break;
-	 default:
+	default:
 		break;
 	}
 }
 
-void button_pressed(const struct device *dev, struct gpio_callback *cb,
-					uint32_t pins)
+void wake_system_thread(void)
 {
-	// Software timer debounce
+	k_wakeup(_system_thread);
+}
 
+void button_pressed(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
+{
+	/*Software timer debounce */
 	uint64_t now = k_uptime_get();
+
 	LOG_DBG("Now: %lld", now);
-	// printk("Now is %lld, last time is %lld\n", now, last_time); // debug debounce
-	if ((now - last_time) > DEBOUNCE_TIMEOUT_MS)
-	{
+
+	if ((now - last_time) > DEBOUNCE_TIMEOUT_MS) {
 		LOG_DBG("Now: %lld, Last time: %lld, Difference: %lld", now, last_time, (now-last_time));
 		k_wakeup(_system_thread);
 	}
+
 	last_time = now;
-
-}
-
-/* Set (unset) LED indicators for active Golioth connection */
-void golioth_connection_led_set(uint8_t state) {
-	uint8_t pin_state = state ? 1 : 0;
-	/* Turn on Golioth logo LED once connected */
-	gpio_pin_set_dt(&golioth_led, pin_state);
-	/* Change the state of the Golioth LED on Ostentus */
-	led_golioth_set(pin_state);
-}
-
-/* Set (unset) LED indicators for active internet connection */
-void network_led_set(uint8_t state) {
-	uint8_t pin_state = state ? 1 : 0;
-	/* Change the state of the Internet LED on Ostentus */
-	led_internet_set(pin_state);
 }
 
 void main(void)
 {
 	int err;
 
-	LOG_INF("Start Golioth Soil Moisture Monitor sample, FW ver %s",CONFIG_MCUBOOT_IMAGE_VERSION);
-
+	LOG_INF("Start Golioth Soil Moisture Monitor sample, FW ver %s", CONFIG_MCUBOOT_IMAGE_VERSION);
 	LOG_INF("Firmware version: %s", CONFIG_MCUBOOT_IMAGE_VERSION);
 
 	/* Update Ostentus LEDS using bitmask (Power On and Battery)*/
@@ -198,12 +196,13 @@ void main(void)
 		/* Block until connected to Golioth */
 		k_sem_take(&connected, K_FOREVER);
 
-	} else if (IS_ENABLED(CONFIG_SOC_NRF9160)){
+	} else if (IS_ENABLED(CONFIG_SOC_NRF9160)) {
 		LOG_INF("Connecting to LTE network. This may take a few minutes...");
+
 		err = lte_lc_init_and_connect_async(lte_handler);
 		if (err) {
-			 printk("lte_lc_init_and_connect_async, error: %d\n", err);
-			 return;
+			LOG_ERR("lte_lc_init_and_connect_async, error: %d", err);
+			return;
 		}
 	}
 
@@ -211,15 +210,15 @@ void main(void)
 	err = gpio_pin_configure_dt(&user_btn, GPIO_INPUT);
 	if (err != 0) {
 		LOG_ERR("Error %d: failed to configure %s pin %d\n",
-				err, user_btn.port->name, user_btn.pin);
+			err, user_btn.port->name, user_btn.pin);
 		return;
 	}
 
-	err = gpio_pin_interrupt_configure_dt(&user_btn,
-	                                      GPIO_INT_EDGE_TO_ACTIVE);
+	err = gpio_pin_interrupt_configure_dt(&user_btn, GPIO_INT_EDGE_TO_ACTIVE);
+
 	if (err != 0) {
 		LOG_ERR("Error %d: failed to configure interrupt on %s pin %d\n",
-				err, user_btn.port->name, user_btn.pin);
+			err, user_btn.port->name, user_btn.pin);
 		return;
 	}
 
@@ -228,8 +227,7 @@ void main(void)
 
 	err = modem_info_init();
 	if (err) {
-		LOG_ERR("Failed initializing modem info module, error: %d\n",
-			err);
+		LOG_ERR("Failed initializing modem info module, error: %d", err);
 	}
 
 	/* Set up a slideshow on Ostentus */
@@ -239,12 +237,14 @@ void main(void)
 	slide_add(TEMPERATURE, M_TEMP_LABEL, strlen(M_TEMP_LABEL));
 	slide_add(PRESSURE, M_PRESSURE_LABEL, strlen(M_PRESSURE_LABEL));
 	slide_add(HUMIDITY, M_HUMIDITY_LABEL, strlen(M_HUMIDITY_LABEL));
+
 	/* Set the title ofthe Ostentus summary slide (optional) */
 	summary_title(SLIDESHOW_TITLE, strlen(SLIDESHOW_TITLE));
+
 	/* Start Ostentus slideshow with 30 second delay between slides */
 	slideshow(30000);
 
-	while (true) {
+	while (1) {
 		if (k_sem_take(&dfu_status_update, K_NO_WAIT) == 0) {
 			app_dfu_report_state_to_golioth();
 		}
