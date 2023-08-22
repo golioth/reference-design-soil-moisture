@@ -75,7 +75,7 @@ void app_work_sensor_read(void) {
 	int16_t bat_voltage = 0;
 	int16_t rrsp = 0;
 
-	const struct device *i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c1));
+	const struct device *i2c_dev = DEVICE_DT_GET(DT_ALIAS(click_i2c));
 	if (i2c_dev==NULL||!device_is_ready(i2c_dev))
 	{
 		LOG_ERR("Could not get i2c device\n");
