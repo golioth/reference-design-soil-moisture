@@ -1,7 +1,14 @@
 /*
- * Copyright (c) 2023 Golioth, Inc.
+ * Copyright (c) 2022-2023 Golioth, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
+ */
+
+/** The `app_work.c` file performs the important work of this application which
+ * is to read sensor values and report them to the Golioth LightDB Stream as
+ * time-series data.
+ *
+ * https://docs.golioth.io/firmware/zephyr-device-sdk/light-db-stream/
  */
 
 #ifndef __APP_WORK_H__
