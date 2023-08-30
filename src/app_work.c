@@ -72,10 +72,6 @@ void app_work_sensor_read(void)
 	uint8_t mcp3221[2] = {0};
 	uint32_t moisture_reading = 0;
 
-	/* Measure Battery Voltage */
-	int16_t bat_voltage = 0;
-	int16_t rrsp = 0;
-
 	const struct device *i2c_dev = DEVICE_DT_GET(DT_ALIAS(click_i2c));
 	if (i2c_dev==NULL||!device_is_ready(i2c_dev))
 	{
@@ -175,8 +171,7 @@ void app_work_sensor_read(void)
 		"{\"imu\":{\"accel_x\":%f,\"accel_y\":%f,\"accel_z\":%f},\
 		\"weather\":{\"temp\":%f,\"pressure\":%f,\"humidity\":%f},\
 		\"moisture\":{\"raw\":%d,\"level\":%d},\
-		\"light\":{\"int\":%d,\"r\":%d,\"g\":%d,\"b\":%d},\
-		\"device\":{\"bat\":%d,\"rrsp\":%d}}",
+		\"light\":{\"int\":%d,\"r\":%d,\"g\":%d,\"b\":%d}}",
 		sensor_value_to_double(&accel_x),
 		sensor_value_to_double(&accel_y),
 		sensor_value_to_double(&accel_z),
@@ -188,9 +183,7 @@ void app_work_sensor_read(void)
 		intensity.val1,
 		red.val1,
 		green.val1,
-		blue.val1,
-		bat_voltage,
-		rrsp
+		blue.val1
 		);
 
 	err = golioth_stream_push_cb(client, "sensor", GOLIOTH_CONTENT_FORMAT_APP_JSON,
