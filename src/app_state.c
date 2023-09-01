@@ -166,4 +166,3 @@ void app_state_observe(void)
 		app_state_update_actual();
 	}
 }
-
