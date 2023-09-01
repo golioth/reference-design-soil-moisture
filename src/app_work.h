@@ -10,7 +10,6 @@
 #include <net/golioth/system_client.h>
 
 /* Ostentus slide labels */
-#define SLIDESHOW_TITLE         "Soil Moisture"
 #define M_READING_LABEL         "Moisture Raw"
 #define M_LEVEL_LABEL           "Moisture Lvl"
 #define M_LIGHT_INT_LABEL       "Light Lvl"
@@ -19,7 +18,7 @@
 #define M_HUMIDITY_LABEL        "Humidity"
 #define LABEL_BATTERY		"Battery"
 #define LABEL_FIRMWARE		"Firmware"
-#define SUMMARY_TITLE		"Air Quality"
+#define SUMMARY_TITLE		"Soil Moisture"
 
 /**
  * Each Ostentus slide needs a unique key. You may add additional slides by
