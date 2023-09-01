@@ -86,11 +86,11 @@ The following settings should be set in the Device Settings menu of the
 ``MOISTURE_LEVEL_X``
    Determines threshhold values for the moisture sensor. Set to an integer value corresponding to 'counts'. 
 
-   * MOISTURE_LEVEL_0
-   * MOISTURE_LEVEL_20
-   * MOISTURE_LEVEL_40
-   * MOISTURE_LEVEL_60
-   * MOISTURE_LEVEL_80
+   * ``MOISTURE_LEVEL_0``: ``3400`` (default value)
+   * ``MOISTURE_LEVEL_20``: ``3200`` (default value)
+   * ``MOISTURE_LEVEL_40``: ``3000`` (default value)
+   * ``MOISTURE_LEVEL_60``: ``2800`` (default value)
+   * ``MOISTURE_LEVEL_80``: ``2600`` (default value)
 
 Remote Procedure Call (RPC) Service
 ===================================
