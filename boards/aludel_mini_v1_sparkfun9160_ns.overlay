@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2023 Golioth, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 / {
         aliases {
                 click-i2c = &i2c1;
@@ -7,7 +13,7 @@
 &i2c1 {
         status = "okay";
 	zephyr,concat-buf-size = <48>;
-        
+
         bme280@76 {
                 compatible = "bosch,bme280";
                 reg = <0x76>;

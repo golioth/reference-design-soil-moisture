@@ -1,3 +1,7 @@
+..
+   Copyright (c) 2023 Golioth, Inc.
+   SPDX-License-Identifier: Apache-2.0
+
 Golioth Soil Moisture Monitor Reference Design
 ##############################################
 
@@ -84,7 +88,7 @@ The following settings should be set in the Device Settings menu of the
    Default value is ``60`` seconds.
 
 ``MOISTURE_LEVEL_X``
-   Determines threshhold values for the moisture sensor. Set to an integer value corresponding to 'counts'. 
+   Determines threshhold values for the moisture sensor. Set to an integer value corresponding to 'counts'.
 
    * ``MOISTURE_LEVEL_0``: ``3400`` (default value)
    * ``MOISTURE_LEVEL_20``: ``3200`` (default value)
