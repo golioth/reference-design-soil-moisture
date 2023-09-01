@@ -278,6 +278,13 @@ int main(void)
 		slide_add(PRESSURE, M_PRESSURE_LABEL, strlen(M_PRESSURE_LABEL));
 		slide_add(HUMIDITY, M_HUMIDITY_LABEL, strlen(M_HUMIDITY_LABEL));
 
+		IF_ENABLED(CONFIG_ALUDEL_BATTERY_MONITOR, (
+			slide_add(BATTERY_V, LABEL_BATTERY, strlen(LABEL_BATTERY));
+			slide_add(BATTERY_LVL, LABEL_BATTERY, strlen(LABEL_BATTERY));
+		));
+
+		slide_add(FIRMWARE, LABEL_FIRMWARE, strlen(LABEL_FIRMWARE));
+
 		/* Set the title ofthe Ostentus summary slide (optional) */
 		summary_title(SUMMARY_TITLE, strlen(SUMMARY_TITLE));
 
