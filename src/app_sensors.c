@@ -5,19 +5,21 @@
  */
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(app_work, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(app_sensors, LOG_LEVEL_DBG);
 
-#include <net/golioth/system_client.h>
+#include <golioth/client.h>
+#include <golioth/stream.h>
+#include <zephyr/drivers/i2c.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/sensor.h>
-#include <stdlib.h>
-#include <zephyr/drivers/i2c.h>
-#include "app_settings.h"
+#include <zephyr/kernel.h>
 
-#include "app_work.h"
+#include "app_sensors.h"
+#include "app_settings.h"
 
 #ifdef CONFIG_LIB_OSTENTUS
 #include <libostentus.h>
+static const struct device *o_dev = DEVICE_DT_GET_ANY(golioth_ostentus);
 #endif
 #ifdef CONFIG_ALUDEL_BATTERY_MONITOR
 #include "battery_monitor/battery.h"
@@ -33,21 +35,20 @@ static const struct device *light_sensor;
 uint32_t moisture_level;
 
 /* Callback for LightDB Stream */
-static int async_error_handler(struct golioth_req_rsp *rsp)
+static void async_error_handler(struct golioth_client *client,
+				const struct golioth_response *response,
+				const char *path,
+				void *arg)
 {
-	if (rsp->err) {
-		LOG_ERR("Async task failed: %d", rsp->err);
-		return rsp->err;
+	if (response->status != GOLIOTH_OK) {
+		LOG_ERR("Async task failed: %d", response->status);
+		return;
 	}
-
-	LOG_DBG("Successful Async LightDB Stream write!");
-
-	return 0;
 }
 
 /* This will be called by the main() loop */
 /* Do all of your work here! */
-void app_work_sensor_read(void)
+void app_sensors_read_and_stream(void)
 {
 	int err;
 	char json_buf[256];
@@ -62,10 +63,19 @@ void app_work_sensor_read(void)
 	struct sensor_value green = {0};
 	struct sensor_value blue = {0};
 
+	/* Golioth custom hardware for demos */
 	IF_ENABLED(CONFIG_ALUDEL_BATTERY_MONITOR, (
-		read_and_report_battery();
-		slide_set(BATTERY_V, get_batt_v_str(), strlen(get_batt_v_str()));
-		slide_set(BATTERY_LVL, get_batt_lvl_str(), strlen(get_batt_lvl_str()));
+		read_and_report_battery(client);
+		IF_ENABLED(CONFIG_LIB_OSTENTUS, (
+			ostentus_slide_set(o_dev,
+					   BATTERY_V,
+					   get_batt_v_str(),
+					   strlen(get_batt_v_str()));
+			ostentus_slide_set(o_dev,
+					   BATTERY_LVL,
+					   get_batt_lvl_str(),
+					   strlen(get_batt_lvl_str()));
+		));
 	));
 
 	/* Direct I2C access to MCP3221 */
@@ -123,7 +133,9 @@ void app_work_sensor_read(void)
 	}
 
 	/* Read the data register from the MCP3221 */
-	err = i2c_burst_read(i2c_dev, 0x4D, 0x00, mcp3221, 2);
+	uint8_t write_data[1] = { 0x00 };
+
+	err = i2c_write_read(i2c_dev, 0x4D, write_data, 1, mcp3221, 2);
 	if (err) {
 		LOG_ERR("Unable get Moisture Reading (err %i)", err);
 	} else {
@@ -186,42 +198,47 @@ void app_work_sensor_read(void)
 		blue.val1
 		);
 
-	err = golioth_stream_push_cb(client, "sensor", GOLIOTH_CONTENT_FORMAT_APP_JSON,
-				     json_buf, strlen(json_buf), async_error_handler, NULL);
-
+	/* Stream data to Golioth */
+	err = golioth_stream_set_async(client,
+				       "sensor",
+				       GOLIOTH_CONTENT_TYPE_JSON,
+				       json_buf,
+				       strlen(json_buf),
+				       async_error_handler,
+				       NULL);
 	if (err) {
 		LOG_ERR("Failed to send sensor data to Golioth: %d", err);
 	}
 
+	/* Golioth custom hardware for demos */
 	IF_ENABLED(CONFIG_LIB_OSTENTUS, (
 		/* Update slide values on Ostentus
 		 *  -values should be sent as strings
-		 *  -use the enum from app_work.h for slide key values
+		 *  -use the enum from app_sensors.h for slide key values
 		 */
 		snprintk(json_buf, sizeof(json_buf), "%d", moisture_reading);
-		slide_set(MOISTURE_READING_KEY, json_buf, strlen(json_buf));
+		ostentus_slide_set(o_dev, MOISTURE_READING_KEY, json_buf, strlen(json_buf));
 
 		snprintk(json_buf, sizeof(json_buf), "%d", moisture_level);
-		slide_set(MOISTURE_LEVEL_KEY, json_buf, strlen(json_buf));
+		ostentus_slide_set(o_dev, MOISTURE_LEVEL_KEY, json_buf, strlen(json_buf));
 
 		snprintk(json_buf, sizeof(json_buf), "%d", intensity.val1);
-		slide_set(MOISTURE_LIGHT_INT, json_buf, strlen(json_buf));
+		ostentus_slide_set(o_dev, MOISTURE_LIGHT_INT, json_buf, strlen(json_buf));
 
 		snprintk(json_buf, sizeof(json_buf), "%d.%d C", temp.val1, (temp.val2 / 10000));
-		slide_set(TEMPERATURE, json_buf, strlen(json_buf));
+		ostentus_slide_set(o_dev, TEMPERATURE, json_buf, strlen(json_buf));
 
 		snprintk(json_buf, sizeof(json_buf), "%d.%d kPa", pressure.val1, (pressure.val2 / 10000));
-		slide_set(PRESSURE, json_buf, strlen(json_buf));
+		ostentus_slide_set(o_dev, PRESSURE, json_buf, strlen(json_buf));
 
 		snprintk(json_buf, sizeof(json_buf), "%d.%d %%RH", humidity.val1, (humidity.val2 / 10000));
-		slide_set(HUMIDITY, json_buf, strlen(json_buf));
-
+		ostentus_slide_set(o_dev, HUMIDITY, json_buf, strlen(json_buf));
 	));
 }
 
-void app_work_init(struct golioth_client *work_client)
+void app_sensors_set_client(struct golioth_client *sensors_client)
 {
-	client = work_client;
+	client = sensors_client;
 }
 
 void sensor_init(void)
