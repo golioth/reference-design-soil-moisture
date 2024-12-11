@@ -7,4 +7,16 @@
         compatible = "golioth,ostentus";
         reg = <0x12>;
     };
+
+     bme280@76 {
+	compatible = "bosch,bme280";
+	reg = <0x76>;
+        };
+
+
+    apds9960: apds9960@39 {
+	compatible = "avago,apds9960";
+	reg = <0x39>;
+	int-gpios = <&gpio0 16 (GPIO_ACTIVE_LOW)>;
+    };
 };
