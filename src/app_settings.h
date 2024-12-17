@@ -19,13 +19,10 @@
 #define __APP_SETTINGS_H__
 
 #include <stdint.h>
-#include <net/golioth/system_client.h>
-
-int app_settings_init(struct golioth_client *state_client);
-int app_settings_observe(void);
-int app_settings_register(struct golioth_client *settings_client);
+#include <golioth/client.h>
 
 int32_t get_loop_delay_s(void);
+int app_settings_register(struct golioth_client *client);
 int32_t get_moisture_level_threshold(uint32_t moisture_threshold);
 
 #endif /* __APP_SETTINGS_H__ */

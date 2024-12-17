@@ -15,13 +15,16 @@ and uses a relay to actuate grow lights and ventilation.
 Local set up
 ************
 
-Do not clone this repo using git. Zephyr's ``west`` meta tool should be used to
-set up your local workspace.
+.. pull-quote::
+   [!IMPORTANT]
+
+   Do not clone this repo using git. Zephyr's ``west`` meta tool should be used to
+   set up your local workspace.
 
 Install the Python virtual environment (recommended)
 ====================================================
 
-.. code-block:: console
+.. code-block:: shell
 
    cd ~
    mkdir golioth-reference-design-soil-moisture
@@ -32,7 +35,7 @@ Install the Python virtual environment (recommended)
 Use west to initialize and install
 ==================================
 
-.. code-block:: console
+.. code-block:: shell
 
    cd ~/golioth-reference-design-soil-moisture
    west init -m git@github.com:golioth/reference-design-soil-moisture.git .
@@ -43,29 +46,56 @@ Use west to initialize and install
 Building the application
 ************************
 
-Build Zephyr sample application for Sparkfun Thing Plus nRF9160 from the top
-level of your project. After a successful build you will see a new `build`
-directory. Note that any changes (and git commmits) to the project itself will
-be inside the `app` folder. The `build` and `deps` directories being one level
-higher prevents the repo from cataloging all of the changes to the dependencies
-and the build (so no .gitignor is needed)
+Build the Zephyr sample application for the `Nordic nRF9160 DK`_
+(``nrf9160dk_nrf9160_ns``) from the top level of your project. After a
+successful build you will see a new ``build`` directory. Note that any changes
+(and git commits) to the project itself will be inside the ``app`` folder. The
+``build`` and ``deps`` directories being one level higher prevents the repo from
+cataloging all of the changes to the dependencies and the build (so no
+``.gitignore`` is needed).
 
-During building Replace <your.semantic.version> to utilize the DFU functionality
-on this Reference Design.
+Prior to building, update ``VERSION`` file to reflect the firmware version number you want to assign
+to this build. Then run the following commands to build and program the firmware onto the device.
 
-.. code-block:: console
 
-   $ (.venv) west build -b aludel_mini_v1_sparkfun9160_ns app -- -DCONFIG_MCUBOOT_IMAGE_VERSION=\"<your.semantic.version>\"
+.. pull-quote::
+   [!IMPORTANT]
+
+   You must perform a pristine build (use ``-p`` or remove the ``build`` directory)
+   after changing the firmware version number in the ``VERSION`` file for the change to take effect.
+
+.. code-block:: text
+
+   $ (.venv) west build -p -b nrf9160dk/nrf9160/ns --sysbuild app
    $ (.venv) west flash
 
 Configure PSK-ID and PSK using the device shell based on your Golioth
 credentials and reboot:
 
-.. code-block:: console
+.. code-block:: text
 
    uart:~$ settings set golioth/psk-id <my-psk-id@my-project>
    uart:~$ settings set golioth/psk <my-psk>
    uart:~$ kernel reboot cold
+
+Add Pipeline to Golioth
+***********************
+
+Golioth uses `Pipelines`_ to route stream data. This gives you flexibility to change your data
+routing without requiring updated device firmware.
+
+Whenever sending stream data, you must enable a pipeline in your Golioth project to configure how
+that data is handled. Add the contents of ``pipelines/cbor-to-lightdb.yml`` as a new pipeline as
+follows (note that this is the default pipeline for new projects and may already be present):
+
+   1. Navigate to your project on the Golioth web console.
+   2. Select ``Pipelines`` from the left sidebar and click the ``Create`` button.
+   3. Give your new pipeline a name and paste the pipeline configuration into the editor.
+   4. Click the toggle in the bottom right to enable the pipeline and then click ``Create``.
+
+All data streamed to Golioth in CBOR format will now be routed to LightDB Stream and may be viewed
+using the web console. You may change this behavior at any time without updating firmware simply by
+editing this pipeline entry.
 
 Golioth Features
 ****************
@@ -168,6 +198,11 @@ and ``state`` endpoints.
 Hardware Variations
 *******************
 
+This reference design may be built for a variety of different boards.
+
+Prior to building, update ``VERSION`` file to reflect the firmware version number you want to assign
+to this build. Then run the following commands to build and program the firmware onto the device.
+
 Nordic nRF9160 DK
 =================
 
@@ -185,8 +220,49 @@ from above to provision this board after programming the firmware.)
 
 .. code-block:: text
 
-   $ (.venv) west build -p -b nrf9160dk_nrf9160_ns app -- -DCONFIG_MCUBOOT_IMAGE_VERSION=\"<your.semantic.version>\"
+   $ (.venv) west build -p -b nrf9160dk/nrf9160/ns --sysbuild app
    $ (.venv) west flash
+
+Golioth Aludel Mini
+===================
+
+This reference design may be built for the Golioth Aludel Mini board.
+
+.. code-block:: text
+
+   $ (.venv) west build -p -b aludel_mini/nrf9160/ns --sysbuild app
+   $ (.venv) west flash
+
+Golioth Aludel Elixir
+=====================
+
+This reference design may be built for the Golioth Aludel Elixir board. By default this will build
+for the latest hardware revision of this board.
+
+.. code-block:: text
+
+   $ (.venv) west build -p -b aludel_elixir/nrf9160/ns --sysbuild app
+   $ (.venv) west flash
+
+To build for a specific board revision (e.g. Rev A) add the revision suffix ``@<rev>``.
+
+.. code-block:: text
+
+   $ (.venv) west build -p -b aludel_elixir@A/nrf9160/ns --sysbuild app
+   $ (.venv) west flash
+
+OTA Firmware Update
+*******************
+
+This application includes the ability to perform Over-the-Air (OTA) firmware updates:
+
+1. Update the version number in the `VERSION` file and perform a pristine (important) build to
+   incorporate the version change.
+2. Upload the `build/app/zephyr/zephyr.signed.bin` file as an artifact for your Golioth project
+   using `main` as the package name.
+3. Create and roll out a release based on this artifact.
+
+Visit `the Golioth Docs OTA Firmware Upgrade page`_ for more info.
 
 External Libraries
 ******************
@@ -199,43 +275,16 @@ from ``west.yml`` and remove the includes/function calls from the C code.
   Aludel-Mini
 * `libostentus`_ is a helper library for controlling the Ostentus ePaper
   faceplate
-
-Pulling in updates from the Reference Design Template
-*****************************************************
-
-This reference design was forked from the `Reference Design Template`_ repo. We
-recommend the following workflow to pull in future changes:
-
-* Setup
-
-  * Create a ``template`` remote based on the Reference Design Template repository
-
-* Merge in template changes
-
-  * Fetch template changes and tags
-  * Merge template release tag into your ``main`` (or other branch)
-  * Resolve merge conflicts (if any) and commit to your repository
-
-.. code-block:: shell
-
-   # Setup
-   git remote add template https://github.com/golioth/reference-design-template.git
-   git fetch template --tags
-
-   # Merge in template changes
-   git fetch template --tags
-   git checkout your_local_branch
-   git merge template_v1.0.0
-
-   # Resolve merge conflicts if necessary
-   git add resolved_files
-   git commit
-
+* `zephyr-network-info`_ is a helper library for querying, formatting, and returning network
+  connection information via Zephyr log or Golioth RPC
 
 .. _Golioth Console: https://console.golioth.io
 .. _Nordic nRF9160 DK: https://www.nordicsemi.com/Products/Development-hardware/nrf9160-dk
+.. _Pipelines: https://docs.golioth.io/data-routing
+.. _the Golioth Docs OTA Firmware Upgrade page: https://docs.golioth.io/firmware/golioth-firmware-sdk/firmware-upgrade/firmware-upgrade
 .. _golioth-zephyr-boards: https://github.com/golioth/golioth-zephyr-boards
 .. _libostentus: https://github.com/golioth/libostentus
+.. _zephyr-network-info: https://github.com/golioth/zephyr-network-info
 .. _MikroE Arduino UNO click shield: https://www.mikroe.com/arduino-uno-click-shield
 .. _MikroE Weather Click: https://www.mikroe.com/weather-click
 .. _MikroE Shuttle Click: https://www.mikroe.com/shuttle-click

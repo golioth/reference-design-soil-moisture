@@ -1,0 +1,16 @@
+&i2c2 {
+    /* Needed for I2C writes used by libostentus */
+    zephyr,concat-buf-size = <48>;
+
+    ostentus@12 {
+        status = "okay";
+        compatible = "golioth,ostentus";
+        reg = <0x12>;
+    };
+
+    apds9960: apds9960@39 {
+	compatible = "avago,apds9960";
+	reg = <0x39>;
+	int-gpios = <&gpio0 2 (GPIO_ACTIVE_LOW)>;
+    };
+};

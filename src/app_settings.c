@@ -7,16 +7,18 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(app_settings, LOG_LEVEL_DBG);
 
-#include <net/golioth/settings.h>
-
+#include <golioth/client.h>
+#include <golioth/settings.h>
 #include "main.h"
 #include "app_settings.h"
 
-static struct golioth_client *client;
+static int32_t _loop_delay_s = 60;
+#define LOOP_DELAY_S_MAX 43200
+#define LOOP_DELAY_S_MIN 0
 
+#define MIN_MOISTURE_VALUE 1
 #define MAX_MOISTURE_VALUE 5000
 
-static int32_t _loop_delay_s = 60;
 static int32_t _MOISTURE_LEVEL_0 = 3400;
 static int32_t _MOISTURE_LEVEL_20 = 3200;
 static int32_t _MOISTURE_LEVEL_40 = 3000;
@@ -48,7 +50,7 @@ int32_t get_moisture_level_threshold(uint32_t moisture_threshold)
 		break;
 
 	case 80:
-		return _MOISTURE_LEVEL_0;
+		return _MOISTURE_LEVEL_80;
 		break;
 
 	default:
@@ -58,178 +60,122 @@ int32_t get_moisture_level_threshold(uint32_t moisture_threshold)
 	}
 }
 
-enum golioth_settings_status on_setting(const char *key,
-					const struct golioth_settings_value *value)
+static enum golioth_settings_status on_loop_delay_setting(int32_t new_value, void *arg)
 {
-
-	LOG_DBG("Received setting: key = %s, type = %d", key, value->type);
-	if (strcmp(key, "LOOP_DELAY_S") == 0) {
-		/* This setting is expected to be numeric, return an error if it's not */
-		if (value->type != GOLIOTH_SETTINGS_VALUE_TYPE_INT64) {
-			return GOLIOTH_SETTINGS_VALUE_FORMAT_NOT_VALID;
-		}
-
-		/* Limit to 12 hour max delay: [1, 43200] */
-		if (value->i64 < 1 || value->i64 > 43200) {
-			return GOLIOTH_SETTINGS_VALUE_OUTSIDE_RANGE;
-		}
-
-		/* Only update if value has changed */
-		if (_loop_delay_s == (int32_t)value->i64) {
-			LOG_DBG("Received LOOP_DELAY_S already matches local value.");
-		} else {
-			_loop_delay_s = (int32_t)value->i64;
-			LOG_INF("Set loop delay to %d seconds", _loop_delay_s);
-
-			wake_system_thread();
-		}
-		return GOLIOTH_SETTINGS_SUCCESS;
-	}
-
-	if (strcmp(key, "MOISTURE_LEVEL_0") == 0) {
-		/* This setting is expected to be numeric, return an error if it's not */
-		if (value->type != GOLIOTH_SETTINGS_VALUE_TYPE_INT64) {
-			return GOLIOTH_SETTINGS_VALUE_FORMAT_NOT_VALID;
-		}
-
-		/* Limit to MAX_MOISTURE_VALUE */
-		if (value->i64 < 1 || value->i64 > MAX_MOISTURE_VALUE) {
-			return GOLIOTH_SETTINGS_VALUE_OUTSIDE_RANGE;
-		}
-
-		/* Only update if value has changed */
-		if (_MOISTURE_LEVEL_0 == (int32_t)value->i64) {
-			LOG_DBG("Received MOISTURE_LEVEL_0 already matches local value.");
-		} else {
-			_MOISTURE_LEVEL_0 = (int32_t)value->i64;
-			LOG_INF("Set Moisture Level 0 to %d", _MOISTURE_LEVEL_0);
-
-			wake_system_thread();
-		}
-		return GOLIOTH_SETTINGS_SUCCESS;
-	}
-
-	if (strcmp(key, "MOISTURE_LEVEL_20") == 0) {
-		/* This setting is expected to be numeric, return an error if it's not */
-		if (value->type != GOLIOTH_SETTINGS_VALUE_TYPE_INT64) {
-			return GOLIOTH_SETTINGS_VALUE_FORMAT_NOT_VALID;
-		}
-
-		/* Limit to MAX_MOISTURE_VALUE */
-		if (value->i64 < 1 || value->i64 > MAX_MOISTURE_VALUE) {
-			return GOLIOTH_SETTINGS_VALUE_OUTSIDE_RANGE;
-		}
-
-		/* Only update if value has changed */
-		if (_MOISTURE_LEVEL_20 == (int32_t)value->i64) {
-			LOG_DBG("Received MOISTURE_LEVEL_20 already matches local value.");
-		} else {
-			_MOISTURE_LEVEL_20 = (int32_t)value->i64;
-			LOG_INF("Set Moisture Level 20 to %d", _MOISTURE_LEVEL_20);
-
-			wake_system_thread();
-		}
-		return GOLIOTH_SETTINGS_SUCCESS;
-	}
-
-	if (strcmp(key, "MOISTURE_LEVEL_40") == 0) {
-		/* This setting is expected to be numeric, return an error if it's not */
-		if (value->type != GOLIOTH_SETTINGS_VALUE_TYPE_INT64) {
-			return GOLIOTH_SETTINGS_VALUE_FORMAT_NOT_VALID;
-		}
-
-		/* Limit to MAX_MOISTURE_VALUE */
-		if (value->i64 < 1 || value->i64 > MAX_MOISTURE_VALUE) {
-			return GOLIOTH_SETTINGS_VALUE_OUTSIDE_RANGE;
-		}
-
-		/* Only update if value has changed */
-		if (_MOISTURE_LEVEL_40 == (int32_t)value->i64) {
-			LOG_DBG("Received MOISTURE_LEVEL_40 already matches local value.");
-		} else {
-			_MOISTURE_LEVEL_40 = (int32_t)value->i64;
-			LOG_INF("Set Moisture Level 40 to %d", _MOISTURE_LEVEL_40);
-
-			wake_system_thread();
-		}
-		return GOLIOTH_SETTINGS_SUCCESS;
-	}
-
-	if (strcmp(key, "MOISTURE_LEVEL_60") == 0) {
-		/* This setting is expected to be numeric, return an error if it's not */
-		if (value->type != GOLIOTH_SETTINGS_VALUE_TYPE_INT64) {
-			return GOLIOTH_SETTINGS_VALUE_FORMAT_NOT_VALID;
-		}
-
-		/* Limit to MAX_MOISTURE_VALUE */
-		if (value->i64 < 1 || value->i64 > MAX_MOISTURE_VALUE) {
-			return GOLIOTH_SETTINGS_VALUE_OUTSIDE_RANGE;
-		}
-
-		/* Only update if value has changed */
-		if (_MOISTURE_LEVEL_60 == (int32_t)value->i64) {
-			LOG_DBG("Received MOISTURE_LEVEL_60 already matches local value.");
-		} else {
-			_MOISTURE_LEVEL_60 = (int32_t)value->i64;
-			LOG_INF("Set Moisture Level 60 to %d", _MOISTURE_LEVEL_60);
-
-			wake_system_thread();
-		}
-		return GOLIOTH_SETTINGS_SUCCESS;
-	}
-
-	if (strcmp(key, "MOISTURE_LEVEL_80") == 0) {
-		/* This setting is expected to be numeric, return an error if it's not */
-		if (value->type != GOLIOTH_SETTINGS_VALUE_TYPE_INT64) {
-			return GOLIOTH_SETTINGS_VALUE_FORMAT_NOT_VALID;
-		}
-
-		/* Limit to MAX_MOISTURE_VALUE */
-		if (value->i64 < 1 || value->i64 > MAX_MOISTURE_VALUE) {
-			return GOLIOTH_SETTINGS_VALUE_OUTSIDE_RANGE;
-		}
-
-		/* Only update if value has changed */
-		if (_MOISTURE_LEVEL_80 == (int32_t)value->i64) {
-			LOG_DBG("Received MOISTURE_LEVEL_80 already matches local value.");
-		} else {
-			_MOISTURE_LEVEL_80 = (int32_t)value->i64;
-			LOG_INF("Set Moisture Level 80 to %d", _MOISTURE_LEVEL_80);
-
-			wake_system_thread();
-		}
-		return GOLIOTH_SETTINGS_SUCCESS;
-	}
-
-	/* If the setting is not recognized, we should return an error */
-	return GOLIOTH_SETTINGS_KEY_NOT_RECOGNIZED;
+	_loop_delay_s = new_value;
+	LOG_INF("Set loop delay to %i seconds", new_value);
+	wake_system_thread();
+	return GOLIOTH_SETTINGS_SUCCESS;
 }
 
-int app_settings_init(struct golioth_client *state_client)
+static enum golioth_settings_status on_moisture_level_setting(int32_t new_value, void *arg)
 {
-	client = state_client;
-	int err = app_settings_register(client);
+	intptr_t m_level = (intptr_t) arg;
+	int32_t *stored_value;
 
-	return err;
-}
+	switch (m_level) {
+		case 0:
+			stored_value = &_MOISTURE_LEVEL_0;
+			break;
+		case 20:
+			stored_value = &_MOISTURE_LEVEL_20;
+			break;
+		case 40:
+			stored_value = &_MOISTURE_LEVEL_40;
+			break;
+		case 60:
+			stored_value = &_MOISTURE_LEVEL_60;
+			break;
+		case 80:
+			stored_value = &_MOISTURE_LEVEL_80;
+			break;
+		default:
+			return GOLIOTH_SETTINGS_GENERAL_ERROR;
 
-int app_settings_observe(void)
-{
-	int err = golioth_settings_observe(client);
-	if (err) {
-		LOG_ERR("Failed to observe settings: %d", err);
 	}
 
-	return err;
+	/* Only update if value has changed */
+	if (*stored_value == new_value) {
+		LOG_DBG("Received MOISTURE_LEVEL_%li already matches local value.", m_level);
+	} else {
+		*stored_value = new_value;
+		LOG_INF("Set Moisture Level %li to %d", m_level, *stored_value);
+		wake_system_thread();
+	}
+
+	return GOLIOTH_SETTINGS_SUCCESS;
 }
 
-int app_settings_register(struct golioth_client *settings_client)
+int app_settings_register(struct golioth_client *client)
 {
-	int err = golioth_settings_register_callback(settings_client, on_setting);
+	struct golioth_settings *settings = golioth_settings_init(client);
+	int err;
+
+	err = golioth_settings_register_int_with_range(settings,
+						       "LOOP_DELAY_S",
+						       LOOP_DELAY_S_MIN,
+						       LOOP_DELAY_S_MAX,
+						       on_loop_delay_setting,
+						       NULL);
 
 	if (err) {
-		LOG_ERR("Failed to register settings callback: %d", err);
+		LOG_ERR("Failed to register LOOP_DELAY_S settings callback: %d", err);
 	}
 
-	return err;
+	err = golioth_settings_register_int_with_range(settings,
+						       "MOISTURE_LEVEL_0",
+						       MIN_MOISTURE_VALUE,
+						       MAX_MOISTURE_VALUE,
+						       on_moisture_level_setting,
+						       (void *) 0);
+
+	if (err) {
+		LOG_ERR("Failed to register MOISTURE_LEVEL_0 settings callback: %d", err);
+	}
+
+	err = golioth_settings_register_int_with_range(settings,
+						       "MOISTURE_LEVEL_20",
+						       MIN_MOISTURE_VALUE,
+						       MAX_MOISTURE_VALUE,
+						       on_moisture_level_setting,
+						       (void *) 20);
+
+	if (err) {
+		LOG_ERR("Failed to register MOISTURE_LEVEL_20 settings callback: %d", err);
+	}
+
+	err = golioth_settings_register_int_with_range(settings,
+						       "MOISTURE_LEVEL_40",
+						       MIN_MOISTURE_VALUE,
+						       MAX_MOISTURE_VALUE,
+						       on_moisture_level_setting,
+						       (void *) 40);
+
+	if (err) {
+		LOG_ERR("Failed to register MOISTURE_LEVEL_40 settings callback: %d", err);
+	}
+
+	err = golioth_settings_register_int_with_range(settings,
+						       "MOISTURE_LEVEL_60",
+						       MIN_MOISTURE_VALUE,
+						       MAX_MOISTURE_VALUE,
+						       on_moisture_level_setting,
+						       (void *) 60);
+
+	if (err) {
+		LOG_ERR("Failed to register MOISTURE_LEVEL_60 settings callback: %d", err);
+	}
+
+	err = golioth_settings_register_int_with_range(settings,
+						       "MOISTURE_LEVEL_80",
+						       MIN_MOISTURE_VALUE,
+						       MAX_MOISTURE_VALUE,
+						       on_moisture_level_setting,
+						       (void *) 80);
+
+	if (err) {
+		LOG_ERR("Failed to register MOISTURE_LEVEL_80 settings callback: %d", err);
+	}
+
+	return 0;
 }
