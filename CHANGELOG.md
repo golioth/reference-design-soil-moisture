@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] - Unreleased
+## [1.1.0] - 2025-10-14
 
 ### Added
 
@@ -18,9 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Merge changes from
-  [`golioth/reference-design-template@template_v2.4.1`](https://github.com/golioth/reference-design-template/tree/template_v2.4.1).
+  [`golioth/reference-design-template@template_v2.8.0`](https://github.com/golioth/reference-design-template/tree/template_v2.8.0).
 - Update board names for Zephyr hardware model v2
 - Use `VERSION` file instead of `prj.conf` to set firmware version
+
+### Removed
+
+- Aludel Mini is EOL and no longer supported
 
 ## [1.0.0] - 2023-09-05
 
