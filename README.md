@@ -24,10 +24,8 @@ images](https://github.com/golioth/reference-design-soil-moisture/releases).
 
 - Nordic nRF9160-DK
 - Golioth Aludel Elixir
-- Golioth Aludel Mini
 
 ### Additional Sensors/Components
-
 
 - Broadcom ADPS-9960 digital ambient light sensor
 - Bosch BME280 digital humidity, pressure, and temperature Sensors
@@ -52,8 +50,8 @@ This app implements:
 
 ### Settings Service
 
-The following settings should be set in the Device Settings menu of the
-[Golioth Console](https://console.golioth.io).
+The following settings should be set in [the Device Settings menu of the
+Golioth Console](https://console.golioth.io/device-settings).
 
   - `LOOP_DELAY_S`
     Adjusts the delay between sensor readings. Set to an integer value
@@ -73,8 +71,8 @@ The following settings should be set in the Device Settings menu of the
 
 ### Remote Procedure Call (RPC) Service
 
-The following RPCs can be initiated in the Remote Procedure Call menu of
-the [Golioth Console](https://console.golioth.io).
+The following RPCs can be initiated in the Remote Procedure Call tab of
+each device in the [Golioth Console](https://console.golioth.io).
 
   - `get_network_info`
     Query and return network information.
@@ -172,7 +170,7 @@ The concept of Digital Twin is demonstrated with the LightDB State
 }
 ```
 
-But default the state values will be `0` and `1`. Try updating the
+By default the state values will be `0` and `1`. Try updating the
 `desired` values and observe how the device updates its state.
 
 ### OTA Firmware Update
@@ -212,7 +210,7 @@ without requiring updated device firmware.
 
 Whenever sending stream data, you must enable a pipeline in your Golioth
 project to configure how that data is handled. Add the contents of
-`pipelines/jsoni-to-lightdb.yml` as a new pipeline as follows (note that
+`pipelines/json-to-lightdb.yml` as a new pipeline as follows (note that
 this is the default pipeline for new projects and may already be
 present):
 
